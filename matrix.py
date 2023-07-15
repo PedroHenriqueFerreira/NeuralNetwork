@@ -1,24 +1,60 @@
+from typing import Callable, Union
+from random import random, randint
+
 from os import get_terminal_size
-from random import random
 from pprint import pformat
 
 class Matrix:
     ''' Matrix class with some operations '''
     
     def __init__(self, rows: int, cols: int):
+        ''' Create a matrix with given rows and columns '''
+        
         self.rows = rows
         self.cols = cols
         
         self.data = [[0.0 for _ in range(cols)] for _ in range(rows)]
     
-    def randomize(self):
+    def randomize(self) -> None:
         ''' Randomize the matrix values '''
         
         for i in range(self.rows):
             for j in range(self.cols):
                 self.data[i][j] = random() * 2 - 1    
     
-    def add_bias(self):
+    def mutate(self, rate: float) -> None:
+        ''' Mutate the matrix values with a given rate '''
+        
+        for i in range(self.rows):
+            for j in range(self.cols):
+                if random() < rate:
+                    new_val = self.data[i][j] + random() * 2 - 1
+                    self.data[i][j] = max(-1, min(1, new_val))
+
+    def crossover(self, other: 'Matrix') -> 'Matrix':
+        ''' Crossover two matrices '''
+        
+        child = Matrix(self.rows, self.cols)
+        
+        rand_row = randint(0, self.rows - 1)
+        rand_col = randint(0, self.cols - 1)
+        
+        for i in range(self.rows):
+            for j in range(self.cols):
+                if i < rand_row or (i == rand_row and j <= rand_col):
+                    child.data[i][j] = self.data[i][j]
+                else:
+                    child.data[i][j] = other.data[i][j]
+        
+        return child
+    
+    def activate(self, func: Callable[[float], float]) -> None:
+        
+        for i in range(self.rows):
+            for j in range(self.cols):
+                self.data[i][j] = func(self.data[i][j])
+    
+    def add_bias(self) -> None:
         ''' Add bias to a single column matrix '''
         
         assert self.cols == 1, 'Matrix must have a single column'
@@ -26,72 +62,81 @@ class Matrix:
         self.rows += 1
         self.data.append([1])
     
-    def clone(self):
+    def clone(self) -> 'Matrix':
         ''' Clone the matrix '''
         
-        matrix = Matrix(self.rows, self.cols)
+        clone = Matrix(self.rows, self.cols)
         
         for i in range(self.rows):
             for j in range(self.cols):
-                matrix.data[i][j] = self.data[i][j]
+                clone.data[i][j] = self.data[i][j]
 
-        return matrix
+        return clone
     
     def __add__(self, other: 'Matrix') -> 'Matrix':
         ''' Add two matrices '''
         
-        assert self.rows == other.rows and self.cols == other.cols, 'Matrices must have compatible dimensions'
+        assert [self.rows, self.cols] == [other.rows, other.cols], 'Matrices must have compatible dimensions'
         
-        matrix = Matrix(self.rows, self.cols)
+        result = Matrix(self.rows, self.cols)
         
-        for i in range(matrix.rows):
-            for j in range(matrix.cols):
-                matrix.data[i][j] = self.data[i][j] + other.data[i][j]
+        for i in range(result.rows):
+            for j in range(result.cols):
+                result.data[i][j] = self.data[i][j] + other.data[i][j]
     
     
-        return matrix
+        return result
     
     def __sub__(self, other: 'Matrix') -> 'Matrix':
         ''' Subtract two matrices '''
         
-        assert self.rows == other.rows and self.cols == other.cols, 'Matrices must have compatible dimensions'
+        assert [self.rows, self.cols] == [other.rows, other.cols], 'Matrices must have compatible dimensions'
         
-        matrix = Matrix(self.rows, self.cols)
+        result = Matrix(self.rows, self.cols)
         
-        for i in range(matrix.rows):
-            for j in range(matrix.cols):
-                matrix.data[i][j] = self.data[i][j] - other.data[i][j]
+        for i in range(result.rows):
+            for j in range(result.cols):
+                result.data[i][j] = self.data[i][j] - other.data[i][j]
     
-        return matrix
-    
-    def __mul__(self, other: 'Matrix') -> 'Matrix':
-        ''' Hadamard product of two matrices '''
+        return result
+       
+    def __mul__(self, other: Union['Matrix', int, float]) -> 'Matrix':
+        ''' Hadamard product of two matrices or scalar multiplication '''
         
-        assert self.rows == other.rows and self.cols == other.cols, 'Matrices must have compatible dimensions'
+        if isinstance(other, int | float):
+            result = Matrix(self.rows, self.cols)
+            
+            for i in range(result.rows):
+                for j in range(result.cols):
+                    result.data[i][j] = self.data[i][j] * other
+            
+            return result
         
-        matrix = Matrix(self.rows, self.cols)
+        assert [self.rows, self.cols] == [other.rows, other.cols], 'Matrices must have compatible dimensions'
         
-        for i in range(matrix.rows):
-            for j in range(matrix.cols):
-                matrix.data[i][j] = self.data[i][j] * other.data[i][j]
+        result = Matrix(self.rows, self.cols)
+        
+        for i in range(result.rows):
+            for j in range(result.cols):
+                result.data[i][j] = self.data[i][j] * other.data[i][j]
                 
-        return matrix
+        return result
     
     def __matmul__(self, other: 'Matrix') -> 'Matrix':
         ''' Multiply two matrices '''
         
         assert self.cols == other.rows, 'Matrices must have compatible dimensions'
         
-        matrix = Matrix(self.rows, other.cols)
+        result = Matrix(self.rows, other.cols)
         
-        for i in range(matrix.rows):
-            for j in range(matrix.cols):
+        for i in range(result.rows):
+            for j in range(result.cols):
                 for k in range(self.cols):
-                    matrix.data[i][j] += self.data[i][k] * other.data[k][j]
+                    result.data[i][j] += self.data[i][k] * other.data[k][j]
         
-        return matrix
+        return result
     
-    def __str__(self):
+    def __str__(self) -> str:
         ''' Return a string representation for the matrix '''
         
         return pformat(self.data, width=get_terminal_size().columns)
@@ -137,10 +182,10 @@ class Matrix:
     def T(self) -> 'Matrix':
         ''' Return the transpose of the matrix '''
         
-        matrix = Matrix(self.cols, self.rows)
+        transpose = Matrix(self.cols, self.rows)
         
         for i in range(self.rows):
             for j in range(self.cols):
-                matrix.data[j][i] = self.data[i][j]
+                transpose.data[j][i] = self.data[i][j]
                 
-        return matrix
+        return transpose
