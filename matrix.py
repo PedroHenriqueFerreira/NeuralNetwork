@@ -99,17 +99,8 @@ class Matrix:
     
         return result
        
-    def __mul__(self, other: Union['Matrix', int, float]) -> 'Matrix':
-        ''' Hadamard product of two matrices or scalar multiplication '''
-        
-        if isinstance(other, int | float):
-            result = Matrix(self.rows, self.cols)
-            
-            for i in range(result.rows):
-                for j in range(result.cols):
-                    result.data[i][j] = self.data[i][j] * other
-            
-            return result
+    def __mul__(self, other: 'Matrix') -> 'Matrix':
+        ''' Hadamard product of two matrices '''
         
         assert [self.rows, self.cols] == [other.rows, other.cols], 'Matrices must have compatible dimensions'
         
@@ -119,6 +110,17 @@ class Matrix:
             for j in range(result.cols):
                 result.data[i][j] = self.data[i][j] * other.data[i][j]
                 
+        return result
+    
+    def __rmul__(self, scale: float) -> 'Matrix':
+        ''' Scalar multiplication '''
+        
+        result = Matrix(self.rows, self.cols)
+            
+        for i in range(result.rows):
+            for j in range(result.cols):
+                result.data[i][j] = self.data[i][j] * scale
+        
         return result
     
     def __matmul__(self, other: 'Matrix') -> 'Matrix':

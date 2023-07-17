@@ -6,9 +6,6 @@ from matrix import Matrix
 sigmoid = lambda x: 1 / (1 + exp(-x))
 d_sigmoid = lambda x: x * (1 - x)
 
-relu = lambda x: max(0, x)
-d_relu = lambda x: 1 if x > 0 else 0
-
 class NeuralNetwork:
     ''' Neural Network class '''
     
@@ -16,21 +13,13 @@ class NeuralNetwork:
         self, 
         input_nodes: int, 
         hidden_nodes: list[int], 
-        output_nodes: int, 
-        learning_rate: float = 0.1,
-        activation: Callable[[float], float] = sigmoid,
-        d_activation: Callable[[float], float] = d_sigmoid
+        output_nodes: int
     ):
         ''' Create a neural network with the given number of input, hidden and output nodes '''
         
         self.input_nodes = input_nodes
         self.hidden_nodes = hidden_nodes
         self.output_nodes = output_nodes
-
-        self.learning_rate = learning_rate
-
-        self.activation = activation
-        self.d_activation = d_activation
         
         self.weights: list[Matrix] = []
         self.biases: list[Matrix] = []
@@ -52,41 +41,103 @@ class NeuralNetwork:
         
         assert len(inputs) == self.input_nodes, f'Expected {self.input_nodes} inputs, got {len(inputs)}'
         
-        x = Matrix.from_array(inputs)
+        a = Matrix.from_array(inputs)
         
         for b, w in zip(self.biases, self.weights):
-            x = (w @ x + b).map(self.activation)
+            a = (w @ a + b).map(sigmoid)
 
-        return x.to_array()
+        return a.to_array()
     
-    def back_propagate(self, x: list[float], y: list[float]) -> None:
-        ''' Backpropagate the error of the neural network '''
+    def back_propagation(self, inputs: list[float], outputs: list[float]) -> tuple[list[Matrix], list[Matrix]]:
+        ''' Backpropagation algorithm '''
         
-        assert len(x) == self.input_nodes, f'Expected {self.input_nodes} inputs, got {len(x)}'
-        assert len(y) == self.output_nodes, f'Expected {self.output_nodes} outputs, got {len(y)}'
+        assert len(inputs) == self.input_nodes, f'Expected {self.input_nodes} inputs, got {len(inputs)}'
+        assert len(outputs) == self.output_nodes, f'Expected {self.output_nodes} outputs, got {len(outputs)}'
         
-        # Feed forward
-        inputs = Matrix.from_array(x)
-        hidden = (self.weights[0] @ inputs + self.biases[0]).map(self.activation)
-        output = (self.weights[1] @ hidden + self.biases[1]).map(self.activation)
+        x = Matrix.from_array(inputs)
+        y = Matrix.from_array(outputs)
         
-        # Backpropagation
-        expected = Matrix.from_array(y)
-        output_error = expected - output
-        d_output = output.map(self.d_activation)
+        A = []
+        a = x
         
-        gradient = output_error * d_output * self.learning_rate
+        # Forward pass
+        for b, w in zip(self.biases, self.weights):
+            a = (w @ a + b).map(sigmoid)    
+            A.append(a)
+        
+        weights = [w.map(lambda x: 0) for w in self.weights]
+        biases = [b.map(lambda x: 0) for b in self.biases]
+        
+        delta: Matrix
+        
+        # Backward pass
+        for l in range(len(A) - 1, -1, -1):
+            if l == len(A) - 1:
+                delta = (A[l] - y) * A[l].map(d_sigmoid)
+            else:
+                delta = (self.weights[l + 1].T @ delta) * A[l].map(d_sigmoid)
+        
+            biases[l] = delta
             
-        self.biases[1] += gradient
-        self.weights[1] += gradient @ hidden.T
+            if l == 0:
+                weights[l] = delta @ x.T
+            else:
+                weights[l] = delta @ A[l - 1].T
+                
+        return weights, biases
         
-        hidden_error = self.weights[1].T @ output_error
-        d_hidden = hidden.map(self.d_activation)
+        # # Feed forward
+        # inputs = Matrix.from_array(x)
+        # hidden = (self.weights[0] @ inputs + self.biases[0]).map(sigmoid)
+        # output = (self.weights[1] @ hidden + self.biases[1]).map(sigmoid)
         
-        gradient_hidden = hidden_error * d_hidden * self.learning_rate
+        # # Backpropagation
+        # expected = Matrix.from_array(y)
+        # output_error = expected - output
+        # d_output = output.map(self.d_activation)
         
-        self.biases[0] += gradient_hidden
-        self.weights[0] += gradient_hidden @ inputs.T
+        # gradient = output_error * d_output * self.learning_rate
+            
+        # self.biases[1] += gradient
+        # self.weights[1] += gradient @ hidden.T
+        
+        # hidden_error = self.weights[1].T @ output_error
+        # d_hidden = hidden.map(self.d_activation)
+         
+        # gradient_hidden = hidden_error * d_hidden * self.learning_rate
+        
+        # self.biases[0] += gradient_hidden
+        # self.weights[0] += gradient_hidden @ inputs.T
+    
+    def gradient_descent(self, batch: list[tuple[list[float], list[float]]], eta: float) -> None:
+        ''' Stochastic gradient descent '''
+        
+        biases = [b.map(lambda x: 0) for b in self.biases]
+        weights = [w.map(lambda x: 0) for w in self.weights]
+        
+        for x, y in batch:
+            delta_weights, delta_biases = self.back_propagation(x, y)
+            
+            biases = [b + db for b, db in zip(biases, delta_biases)]
+            weights = [w + dw for w, dw in zip(weights, delta_weights)]
+    
+        rate = eta / len(batch)
+    
+        self.biases = [b - (rate * db) for b, db in zip(self.biases, biases)]
+        self.weights = [w - (rate * dw) for w, dw in zip(self.weights, weights)]
+    
+    def train(
+        self, 
+        data: list[tuple[list[float], list[float]]], 
+        epochs: int, 
+        batch_size: int, 
+        eta: float
+    ) -> None:
+        ''' Train the neural network '''
+        
+        for _ in range(epochs):
+            for i in range(0, len(data), batch_size):
+                self.gradient_descent(data[i:i + batch_size], eta)
     
     def mutate(self, rate: float) -> None:
         ''' Mutate the weights of the neural network '''
@@ -134,22 +185,16 @@ class NeuralNetwork:
         
         return neural_network
     
-nn = NeuralNetwork(2, [2], 1)
+nn = NeuralNetwork(2, [2, 2], 1)
+
+nn.train([
+    ([0, 0], [0]),
+    ([0, 1], [1]),
+    ([1, 0], [1]),
+    ([1, 1], [0])
+], 50000, 4, 0.4)
 
 print(nn.feed_forward([1, 1]))
-print(nn.feed_forward([1, 0]))
-print(nn.feed_forward([0, 1]))
 print(nn.feed_forward([0, 0]))
-
-print('-----------------------')
-
-for i in range(100000):
-    nn.back_propagate([1, 0], [1])
-    nn.back_propagate([0, 1], [1])
-    nn.back_propagate([0, 0], [0])
-    nn.back_propagate([1, 1], [0])
-    
-print(nn.feed_forward([1, 1]))
-print(nn.feed_forward([1, 0]))
 print(nn.feed_forward([0, 1]))
-print(nn.feed_forward([0, 0]))
+print(nn.feed_forward([1, 0]))
