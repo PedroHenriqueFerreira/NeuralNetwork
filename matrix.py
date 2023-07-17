@@ -34,6 +34,8 @@ class Matrix:
     def crossover(self, other: 'Matrix') -> 'Matrix':
         ''' Crossover two matrices '''
         
+        assert [self.rows, self.cols] == [other.rows, other.cols], 'Matrices must have compatible dimensions'
+        
         child = Matrix(self.rows, self.cols)
         
         rand_row = randint(0, self.rows - 1)
@@ -48,19 +50,16 @@ class Matrix:
         
         return child
     
-    def activate(self, func: Callable[[float], float]) -> None:
+    def map(self, func: Callable[[float], float]) -> 'Matrix':
+        ''' Apply a function to each element of the matrix '''
+
+        result = Matrix(self.rows, self.cols)
         
         for i in range(self.rows):
             for j in range(self.cols):
-                self.data[i][j] = func(self.data[i][j])
+                result.data[i][j] = func(self.data[i][j])
     
-    def add_bias(self) -> None:
-        ''' Add bias to a single column matrix '''
-        
-        assert self.cols == 1, 'Matrix must have a single column'
-        
-        self.rows += 1
-        self.data.append([1])
+        return result
     
     def clone(self) -> 'Matrix':
         ''' Clone the matrix '''
