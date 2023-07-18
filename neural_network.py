@@ -57,18 +57,18 @@ class NeuralNetwork:
         x = Matrix.from_array(inputs)
         y = Matrix.from_array(outputs)
         
+        # Store activations
         A = []
-        a = x
         
         # Forward pass
+        a = x
+        
         for b, w in zip(self.biases, self.weights):
-            a = (w @ a + b).map(sigmoid)    
+            a = (w @ a + b).map(sigmoid)
             A.append(a)
         
-        weights = [w.map(lambda x: 0) for w in self.weights]
-        biases = [b.map(lambda x: 0) for b in self.biases]
-        
-        delta: Matrix
+        dB = [b.map(lambda _: 0) for b in self.biases]
+        dW = [w.map(lambda _: 0) for w in self.weights]
         
         # Backward pass
         for l in range(len(A) - 1, -1, -1):
@@ -76,62 +76,39 @@ class NeuralNetwork:
                 delta = (A[l] - y) * A[l].map(d_sigmoid)
             else:
                 delta = (self.weights[l + 1].T @ delta) * A[l].map(d_sigmoid)
-        
-            biases[l] = delta
             
             if l == 0:
-                weights[l] = delta @ x.T
+                dW[l] = delta @ x.T
             else:
-                weights[l] = delta @ A[l - 1].T
+                dW[l] = delta @ A[l - 1].T
                 
-        return weights, biases
-        
-        # # Feed forward
-        # inputs = Matrix.from_array(x)
-        # hidden = (self.weights[0] @ inputs + self.biases[0]).map(sigmoid)
-        # output = (self.weights[1] @ hidden + self.biases[1]).map(sigmoid)
-        
-        # # Backpropagation
-        # expected = Matrix.from_array(y)
-        # output_error = expected - output
-        # d_output = output.map(self.d_activation)
-        
-        # gradient = output_error * d_output * self.learning_rate
-            
-        # self.biases[1] += gradient
-        # self.weights[1] += gradient @ hidden.T
-        
-        # hidden_error = self.weights[1].T @ output_error
-        # d_hidden = hidden.map(self.d_activation)
-         
-        # gradient_hidden = hidden_error * d_hidden * self.learning_rate
-        
-        # self.biases[0] += gradient_hidden
-        # self.weights[0] += gradient_hidden @ inputs.T
+            dB[l] = delta
+                
+        return dW, dB    
     
     def gradient_descent(self, batch: list[tuple[list[float], list[float]]], eta: float) -> None:
         ''' Stochastic gradient descent '''
-        
-        biases = [b.map(lambda x: 0) for b in self.biases]
-        weights = [w.map(lambda x: 0) for w in self.weights]
+         
+        dB_total = [b.map(lambda _: 0) for b in self.biases]
+        dW_total = [w.map(lambda _: 0) for w in self.weights]
         
         for x, y in batch:
-            delta_weights, delta_biases = self.back_propagation(x, y)
+            dW, dB = self.back_propagation(x, y)
             
-            biases = [b + db for b, db in zip(biases, delta_biases)]
-            weights = [w + dw for w, dw in zip(weights, delta_weights)]
+            dB_total = [b + db for b, db in zip(dB_total, dB)]
+            dW_total = [w + dw for w, dw in zip(dW_total, dW)]
     
         rate = eta / len(batch)
     
-        self.biases = [b - (rate * db) for b, db in zip(self.biases, biases)]
-        self.weights = [w - (rate * dw) for w, dw in zip(self.weights, weights)]
+        self.biases = [b - (rate * db_total) for b, db_total in zip(self.biases, dB_total)]
+        self.weights = [w - (rate * dw_total) for w, dw_total in zip(self.weights, dW_total)]
     
     def train(
         self, 
         data: list[tuple[list[float], list[float]]], 
         epochs: int, 
-        batch_size: int, 
-        eta: float
+        batch_size: int = 64, 
+        eta: float = 3
     ) -> None:
         ''' Train the neural network '''
         
@@ -188,11 +165,11 @@ class NeuralNetwork:
 nn = NeuralNetwork(2, [2, 2], 1)
 
 nn.train([
+    ([1, 1], [0]),
     ([0, 0], [0]),
     ([0, 1], [1]),
     ([1, 0], [1]),
-    ([1, 1], [0])
-], 50000, 4, 0.4)
+], 10000)
 
 print(nn.feed_forward([1, 1]))
 print(nn.feed_forward([0, 0]))
