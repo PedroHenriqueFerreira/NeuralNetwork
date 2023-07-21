@@ -15,28 +15,36 @@ class Matrix:
         
         self.data = [[0.0 for _ in range(cols)] for _ in range(rows)]
     
-    def randomize(self) -> None:
+    def randomize(self) -> 'Matrix':
         ''' Randomize the matrix values '''
+
+        matrix = Matrix(self.rows, self.cols)
         
         for i in range(self.rows):
             for j in range(self.cols):
-                self.data[i][j] = random() * 2 - 1    
+                matrix.data[i][j] = random() * 2 - 1    
+                
+        return matrix
     
-    def mutate(self, rate: float) -> None:
+    def mutate(self, rate: float) -> 'Matrix':
         ''' Mutate the matrix values with a given rate '''
+        
+        matrix = Matrix(self.rows, self.cols)
         
         for i in range(self.rows):
             for j in range(self.cols):
                 if random() < rate:
-                    new_val = self.data[i][j] + random() * 2 - 1
-                    self.data[i][j] = max(-1, min(1, new_val))
+                    value = self.data[i][j] + random() * 2 - 1
+                    matrix.data[i][j] = max(-1, min(1, value))
+                    
+        return matrix
 
     def crossover(self, other: 'Matrix') -> 'Matrix':
         ''' Crossover two matrices '''
         
         assert [self.rows, self.cols] == [other.rows, other.cols], 'Matrices must have compatible dimensions'
         
-        child = Matrix(self.rows, self.cols)
+        matrix = Matrix(self.rows, self.cols)
         
         rand_row = randint(0, self.rows - 1)
         rand_col = randint(0, self.cols - 1)
@@ -44,98 +52,97 @@ class Matrix:
         for i in range(self.rows):
             for j in range(self.cols):
                 if i < rand_row or (i == rand_row and j <= rand_col):
-                    child.data[i][j] = self.data[i][j]
+                    matrix.data[i][j] = self.data[i][j]
                 else:
-                    child.data[i][j] = other.data[i][j]
+                    matrix.data[i][j] = other.data[i][j]
         
-        return child
+        return matrix
     
     def map(self, func: Callable[[float], float]) -> 'Matrix':
         ''' Apply a function to each element of the matrix '''
 
-        result = Matrix(self.rows, self.cols)
+        matrix = Matrix(self.rows, self.cols)
         
         for i in range(self.rows):
             for j in range(self.cols):
-                result.data[i][j] = func(self.data[i][j])
+                matrix.data[i][j] = func(self.data[i][j])
     
-        return result
+        return matrix
     
     def clone(self) -> 'Matrix':
         ''' Clone the matrix '''
         
-        clone = Matrix(self.rows, self.cols)
+        matrix = Matrix(self.rows, self.cols)
         
         for i in range(self.rows):
             for j in range(self.cols):
-                clone.data[i][j] = self.data[i][j]
+                matrix.data[i][j] = self.data[i][j]
 
-        return clone
+        return matrix
     
     def __add__(self, other: 'Matrix') -> 'Matrix':
         ''' Add two matrices '''
         
         assert [self.rows, self.cols] == [other.rows, other.cols], 'Matrices must have compatible dimensions'
         
-        result = Matrix(self.rows, self.cols)
+        matrix = Matrix(self.rows, self.cols)
         
-        for i in range(result.rows):
-            for j in range(result.cols):
-                result.data[i][j] = self.data[i][j] + other.data[i][j]
+        for i in range(matrix.rows):
+            for j in range(matrix.cols):
+                matrix.data[i][j] = self.data[i][j] + other.data[i][j]
     
-    
-        return result
+        return matrix
     
     def __sub__(self, other: 'Matrix') -> 'Matrix':
         ''' Subtract two matrices '''
         
         assert [self.rows, self.cols] == [other.rows, other.cols], 'Matrices must have compatible dimensions'
         
-        result = Matrix(self.rows, self.cols)
+        matrix = Matrix(self.rows, self.cols)
         
-        for i in range(result.rows):
-            for j in range(result.cols):
-                result.data[i][j] = self.data[i][j] - other.data[i][j]
+        for i in range(matrix.rows):
+            for j in range(matrix.cols):
+                matrix.data[i][j] = self.data[i][j] - other.data[i][j]
     
-        return result
+        return matrix
        
     def __mul__(self, other: 'Matrix') -> 'Matrix':
         ''' Hadamard product of two matrices '''
         
         assert [self.rows, self.cols] == [other.rows, other.cols], 'Matrices must have compatible dimensions'
         
-        result = Matrix(self.rows, self.cols)
+        matrix = Matrix(self.rows, self.cols)
         
-        for i in range(result.rows):
-            for j in range(result.cols):
-                result.data[i][j] = self.data[i][j] * other.data[i][j]
+        for i in range(matrix.rows):
+            for j in range(matrix.cols):
+                matrix.data[i][j] = self.data[i][j] * other.data[i][j]
                 
-        return result
+        return matrix
     
     def __rmul__(self, scale: float) -> 'Matrix':
         ''' Scalar multiplication '''
         
-        result = Matrix(self.rows, self.cols)
+        matrix = Matrix(self.rows, self.cols)
             
-        for i in range(result.rows):
-            for j in range(result.cols):
-                result.data[i][j] = self.data[i][j] * scale
+        for i in range(matrix.rows):
+            for j in range(matrix.cols):
+                matrix.data[i][j] = self.data[i][j] * scale
         
-        return result
+        return matrix
     
     def __matmul__(self, other: 'Matrix') -> 'Matrix':
         ''' Multiply two matrices '''
         
         assert self.cols == other.rows, 'Matrices must have compatible dimensions'
         
-        result = Matrix(self.rows, other.cols)
+        matrix = Matrix(self.rows, other.cols)
         
-        for i in range(result.rows):
-            for j in range(result.cols):
+        for i in range(matrix.rows):
+            for j in range(matrix.cols):
                 for k in range(self.cols):
-                    result.data[i][j] += self.data[i][k] * other.data[k][j]
+                    matrix.data[i][j] += self.data[i][k] * other.data[k][j]
         
-        return result
+        return matrix
     
     def __str__(self) -> str:
         ''' Return a string representation for the matrix '''
@@ -183,10 +190,10 @@ class Matrix:
     def T(self) -> 'Matrix':
         ''' Return the transpose of the matrix '''
         
-        transpose = Matrix(self.cols, self.rows)
+        matrix = Matrix(self.cols, self.rows)
         
         for i in range(self.rows):
             for j in range(self.cols):
-                transpose.data[j][i] = self.data[i][j]
+                matrix.data[j][i] = self.data[i][j]
                 
-        return transpose
+        return matrix
