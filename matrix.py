@@ -26,38 +26,6 @@ class Matrix:
                 
         return matrix
     
-    def mutate(self, rate: float) -> 'Matrix':
-        ''' Mutate the matrix values with a given rate '''
-        
-        matrix = Matrix(self.rows, self.cols)
-        
-        for i in range(self.rows):
-            for j in range(self.cols):
-                if random() < rate:
-                    value = self.data[i][j] + random() * 2 - 1
-                    matrix.data[i][j] = max(-1, min(1, value))
-                    
-        return matrix
-
-    def crossover(self, other: 'Matrix') -> 'Matrix':
-        ''' Crossover two matrices '''
-        
-        assert [self.rows, self.cols] == [other.rows, other.cols], 'Matrices must have compatible dimensions'
-        
-        matrix = Matrix(self.rows, self.cols)
-        
-        rand_row = randint(0, self.rows - 1)
-        rand_col = randint(0, self.cols - 1)
-        
-        for i in range(self.rows):
-            for j in range(self.cols):
-                if i < rand_row or (i == rand_row and j <= rand_col):
-                    matrix.data[i][j] = self.data[i][j]
-                else:
-                    matrix.data[i][j] = other.data[i][j]
-        
-        return matrix
-    
     def map(self, func: Callable[[float], float]) -> 'Matrix':
         ''' Apply a function to each element of the matrix '''
 
@@ -67,17 +35,6 @@ class Matrix:
             for j in range(self.cols):
                 matrix.data[i][j] = func(self.data[i][j])
     
-        return matrix
-    
-    def clone(self) -> 'Matrix':
-        ''' Clone the matrix '''
-        
-        matrix = Matrix(self.rows, self.cols)
-        
-        for i in range(self.rows):
-            for j in range(self.cols):
-                matrix.data[i][j] = self.data[i][j]
-
         return matrix
     
     def __add__(self, other: 'Matrix') -> 'Matrix':
@@ -147,7 +104,7 @@ class Matrix:
     def __str__(self) -> str:
         ''' Return a string representation for the matrix '''
         
-        return pformat(self.data, width=get_terminal_size().columns)
+        return str(self.data)
     
     def to_array(self) -> list[float]:
         ''' Return a list representation for the matrix '''
@@ -170,21 +127,6 @@ class Matrix:
             matrix.data[i][0] = arr[i]
         
         return matrix    
-        
-    @staticmethod
-    def load(data: list[list[float]]) -> 'Matrix':
-        ''' Load a matrix from a list of lists '''
-        
-        rows = len(data)
-        cols = len(data[0])
-        
-        matrix = Matrix(rows, cols)
-        
-        for i in range(rows):
-            for j in range(cols):
-                matrix.data[i][j] = data[i][j]
-        
-        return matrix
     
     @property
     def T(self) -> 'Matrix':
