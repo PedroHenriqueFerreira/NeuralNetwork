@@ -1,11 +1,8 @@
-from typing import Callable, Union
-from random import random, randint
-
-from os import get_terminal_size
-from pprint import pformat
+from typing import Callable
+from random import random
 
 class Matrix:
-    ''' Matrix class with some operations '''
+    ''' Matrix class '''
     
     def __init__(self, rows: int, cols: int):
         ''' Create a matrix with given rows and columns '''

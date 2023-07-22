@@ -1,10 +1,21 @@
-from typing import Callable
+from typing import Callable, Literal
 from math import exp
 
 from matrix import Matrix
 
-sigmoid = lambda x: 1 / (1 + exp(-x))
-d_sigmoid = lambda x: x * (1 - x)
+ACTIVATIONS: dict[str, Callable[[float], float]] = {
+    'identity': lambda x: x,
+    'sigmoid': lambda x: 1 / (1 + exp(-x)),
+    'tanh': lambda x: (exp(x) - exp(-x)) / (exp(x) + exp(-x)),
+    'relu': lambda x: max(0, x),
+}
+
+DERIVATIVES: dict[str, Callable[[float], float]] = {
+    'identity': lambda x: 1,
+    'sigmoid': lambda x: x * (1 - x),
+    'tanh': lambda x: 1 - x ** 2,
+    'relu': lambda x: 1 if x > 0 else 0,
+}
 
 class NeuralNetwork:
     ''' Neural Network class '''
@@ -14,8 +25,10 @@ class NeuralNetwork:
         input_nodes: int, 
         hidden_nodes: list[int], 
         output_nodes: int,
-        activation: Callable[[float], float] = sigmoid,
-        d_activation: Callable[[float], float] = d_sigmoid
+        activation: Literal['identity', 'sigmoid', 'tanh', 'relu'] = 'sigmoid',
+        batch_size: int = 200, 
+        learning_rate: float = 0.001,
+        max_iter: int = 200
     ):
         ''' Create a neural network with the given number of input, hidden and output nodes '''
         
@@ -23,90 +36,82 @@ class NeuralNetwork:
         self.hidden_nodes = hidden_nodes
         self.output_nodes = output_nodes
         
-        self.activation = activation
-        self.d_activation = d_activation
+        self.batch_size = batch_size
+        self.learning_rate = learning_rate
+        self.max_iter = max_iter
         
-        self.weights: list[Matrix] = []
+        self.activation = activation
         
         nodes = [input_nodes] + hidden_nodes + [output_nodes]
         
         self.biases = [Matrix(n, 1).randomize() for n in nodes[1:]]
         self.weights = [Matrix(n, prev_n).randomize() for prev_n, n in zip(nodes[:-1], nodes[1:])]
     
-    def feed_forward(self, inputs: list[float]) -> list[Matrix]:
-        ''' Feed forward the given inputs through the neural network '''
+    def forward_pass(self, X: list[float]) -> list[Matrix]:
+        ''' Forward the input through the neural network '''
         
-        assert len(inputs) == self.input_nodes, f'Expected {self.input_nodes} inputs, got {len(inputs)}'
+        assert len(X) == self.input_nodes, f'Expected {self.input_nodes} inputs, got {len(X)}'
         
         activations: list[Matrix] = []
+        activation = Matrix.from_array(X)
         
-        x = Matrix.from_array(inputs)
         
         for bias, weight in zip(self.biases, self.weights):
-            x = (weight @ x + bias).map(self.activation)
-            activations.append(x)
+            activation = (weight @ activation + bias).map(ACTIVATIONS[self.activation])
+            activations.append(activation)
 
         return activations
     
-    def predict(self, inputs: list[float]) -> list[float]:
+    def predict(self, X: list[float]) -> list[float]:
         ''' Predict the output of the neural network '''
         
-        activations = self.feed_forward(inputs)
+        activations = self.forward_pass(X)
         
         return activations[-1].to_array()
     
-    def back_propagation(self, inputs: list[float], outputs: list[float], learning_rate: float) -> None:
+    def back_propagation(self, X: list[float], y: list[float]) -> None:
         ''' Backpropagation algorithm '''
         
-        assert len(inputs) == self.input_nodes, f'Expected {self.input_nodes} inputs, got {len(inputs)}'
-        assert len(outputs) == self.output_nodes, f'Expected {self.output_nodes} outputs, got {len(outputs)}'
+        assert len(X) == self.input_nodes, f'Expected {self.input_nodes} inputs, got {len(X)}'
+        assert len(y) == self.output_nodes, f'Expected {self.output_nodes} outputs, got {len(y)}'
         
-        activations = self.feed_forward(inputs)
+        activations = self.forward_pass(X)
         
         # Backward pass
         for layer in range(len(activations) - 1, -1, -1):
+            derivatives = activations[layer].map(DERIVATIVES[self.activation])
+            
             if layer == len(activations) - 1:
-                delta = (Matrix.from_array(outputs) - activations[layer]) * activations[layer].map(d_sigmoid)
+                delta = (Matrix.from_array(y) - activations[layer]) * derivatives
             else:
-                delta = (self.weights[layer + 1].T @ delta) * activations[layer].map(d_sigmoid)
+                delta = (self.weights[layer + 1].T @ delta) * derivatives
             
             update_bias = delta
             
             if layer == 0:
-                update_weight = delta @ Matrix.from_array(inputs).T
+                update_weight = delta @ Matrix.from_array(X).T
             else:
                 update_weight = delta @ activations[layer - 1].T
                 
-            self.biases[layer] += learning_rate * update_bias
-            self.weights[layer] += learning_rate * update_weight
+            self.biases[layer] += self.learning_rate * update_bias
+            self.weights[layer] += self.learning_rate * update_weight
     
-    def train(
-        self, 
-        data: list[tuple[list[float], list[float]]], 
-        epochs: int, 
-        batch_size: int = 200, 
-        learning_rate: float = 0.1
-    ) -> None:
+    def train(self, X: list[list[float]], y: list[list[float]]) -> None:
         ''' Train the neural network '''
         
-        for epoch in range(epochs):
-            total_err = 0.0
+        for curr_iter in range(self.max_iter):
+            err = 0.0
             
-            for x, y in data:
-                total_err += sum([err ** 2 for err in (Matrix.from_array(self.predict(x)) - Matrix.from_array(y)).to_array()])
+            for Xi, yi in zip(X, y):
+                expected = Matrix.from_array(yi)
+                output = Matrix.from_array(self.predict(Xi))
                 
-            print(f'EPOCH {epoch + 1} | ERROR: {total_err}')
+                err += sum([e ** 2 for e in (expected - output).to_array()])
+                
+            print(f'ITERATION: {curr_iter + 1} | ERROR: {err}')
             
-            for i in range(0, len(data), batch_size):
-                for x, y in data[i:i + batch_size]:
-                    self.back_propagation(x, y, learning_rate)
-    
-    def mutate(self, rate: float) -> 'NeuralNetwork':
-        ''' Mutate the weights of the neural network '''
-        
-        nn = NeuralNetwork(self.input_nodes, self.hidden_nodes, self.output_nodes)
-        
-        nn.biases = [bias.mutate(rate) for bias in self.biases]
-        nn.weights = [weight.mutate(rate) for weight in self.weights]
-            
-        return nn
+            for i in range(0, len(X), self.batch_size):
+                data = list(zip(X, y))[i:i + self.batch_size]
+                
+                for Xi, yi in data:
+                    self.back_propagation(Xi, yi)
