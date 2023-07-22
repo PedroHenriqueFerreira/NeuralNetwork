@@ -100,15 +100,19 @@ class NeuralNetwork:
         ''' Train the neural network '''
         
         for curr_iter in range(self.max_iter):
-            err = 0.0
+            total_error = 0.0
             
             for Xi, yi in zip(X, y):
                 expected = Matrix.from_array(yi)
                 output = Matrix.from_array(self.predict(Xi))
                 
-                err += sum([e ** 2 for e in (expected - output).to_array()])
+                error = expected - output
                 
-            print(f'ITERATION: {curr_iter + 1} | ERROR: {err}')
+                error = error * error
+                
+                total_error += (sum(error.to_array())) / len(error.to_array())
+                
+            print(f'ITERATION: {curr_iter + 1} | ERROR: {total_error / len(X)}')
             
             for i in range(0, len(X), self.batch_size):
                 data = list(zip(X, y))[i:i + self.batch_size]

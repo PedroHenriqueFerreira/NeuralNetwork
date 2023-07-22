@@ -1,22 +1,27 @@
-from sklearn.neural_network import MLPClassifier, MLPRegressor
-
+from sklearn import datasets, preprocessing
 from neural_network import NeuralNetwork
 
-nn = NeuralNetwork(2, [2], 1, activation='relu', max_iter=50000, learning_rate=0.001)
+def one_hot_encoder(y: int) -> list[float]:
+    array = [0.0] * 10
+    
+    array[y] = 1.0
+    return array
 
-nn.train([
-    [0, 0],
-    [0, 1],
-    [1, 0],
-    [1, 1]
-], [
-    [0],
-    [1],
-    [1],
-    [0]
-])
+digits = datasets.load_digits()
 
-print(nn.predict([0, 0]))
-print(nn.predict([0, 1]))
-print(nn.predict([1, 0]))
-print(nn.predict([1, 1]))
+X: list[list[float]] = preprocessing.scale(digits.data.astype(float))
+y = [one_hot_encoder(v) for v in digits.target]
+
+# X = X[:200]
+# y = y[:200]
+
+split_index = int(len(X) * 0.8)
+X_train, X_test = X[:split_index], X[split_index:]
+y_train, y_test = y[:split_index], y[split_index:]
+
+nn = NeuralNetwork(64, [60], 10, learning_rate=0.2)
+
+nn.train(X_train, y_train)
+
+for i in range(len(X_test)):
+    print(f'PREDICT: {[round(x) for x in nn.predict(X_test[i])]} | EXPECTED: {[round(y) for y in y_test[i]]}')
