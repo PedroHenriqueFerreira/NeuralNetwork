@@ -64,7 +64,8 @@ class Matrix:
     def __add__(self, other: 'Matrix') -> 'Matrix':
         ''' Add two matrices '''
         
-        assert [self.rows, self.cols] == [other.rows, other.cols], 'Matrices must have compatible dimensions'
+        if [self.rows, self.cols] != [other.rows, other.cols]: 
+            ValueError('Matrices must have compatible dimensions')
         
         matrix = Matrix(self.rows, self.cols)
         
@@ -77,8 +78,9 @@ class Matrix:
     def __sub__(self, other: 'Matrix') -> 'Matrix':
         ''' Subtract two matrices '''
         
-        assert [self.rows, self.cols] == [other.rows, other.cols], 'Matrices must have compatible dimensions'
-        
+        if [self.rows, self.cols] != [other.rows, other.cols]: 
+            ValueError('Matrices must have compatible dimensions')
+     
         matrix = Matrix(self.rows, self.cols)
         
         for i in range(matrix.rows):
@@ -90,7 +92,8 @@ class Matrix:
     def __mul__(self, other: 'Matrix') -> 'Matrix':
         ''' Hadamard product of two matrices '''
         
-        assert [self.rows, self.cols] == [other.rows, other.cols], 'Matrices must have compatible dimensions'
+        if [self.rows, self.cols] != [other.rows, other.cols]:
+            ValueError('Matrices must have compatible dimensions')
         
         matrix = Matrix(self.rows, self.cols)
         
@@ -112,9 +115,10 @@ class Matrix:
         return matrix
     
     def __matmul__(self, other: 'Matrix') -> 'Matrix':
-        ''' Multiply two matrices '''
+        ''' Dot product of two matrices '''
         
-        assert self.cols == other.rows, 'Matrices must have compatible dimensions'
+        if self.cols != other.rows: 
+            ValueError('Matrices must have compatible dimensions')
         
         matrix = Matrix(self.rows, other.cols)
         

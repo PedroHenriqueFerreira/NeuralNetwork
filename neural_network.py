@@ -1,74 +1,7 @@
-from typing import Callable, Literal
-from math import exp
+from typing import Literal
 
 from matrix import Matrix
-
-def identity(matrix: Matrix) -> Matrix:
-    ''' Identity activation function '''
-    
-    return matrix.map(lambda x: x)
-
-def sigmoid(matrix: Matrix) -> Matrix:
-    ''' Sigmoid activation function '''
-    
-    return matrix.map(lambda x: 1 / (1 + exp(-x)))
-
-def tanh(matrix: Matrix) -> Matrix:
-    ''' Tanh activation function '''
-    
-    return matrix.map(lambda x: (exp(x) - exp(-x)) / (exp(x) + exp(-x)))
-
-def relu(matrix: Matrix) -> Matrix:
-    ''' ReLU activation function '''
-    
-    return matrix.map(lambda x: max(0, x))
-
-def softmax(matrix: Matrix) -> Matrix:
-    ''' Softmax activation function '''
-    
-    sum = matrix.map(lambda x: exp(x)).sum()    
-    return matrix.map(lambda x: exp(x) / sum)
-
-ACTIVATIONS: dict[str, Callable[[Matrix], Matrix]] = {
-    'identity': identity,
-    'sigmoid': sigmoid,
-    'tanh': tanh,
-    'relu': relu,
-    'softmax': softmax
-}
-
-def identity_derivative(matrix: Matrix) -> Matrix:
-    ''' Identity activation function derivative '''
-    
-    return matrix.map(lambda x: 1)
-
-def sigmoid_derivative(matrix: Matrix) -> Matrix:
-    ''' Sigmoid activation function derivative '''
-    
-    return matrix.map(lambda x: x * (1 - x))
-
-def tanh_derivative(matrix: Matrix) -> Matrix:
-    ''' Tanh activation function derivative '''
-    
-    return matrix.map(lambda x: 1 - x ** 2)
-
-def relu_derivative(matrix: Matrix) -> Matrix:
-    ''' ReLU activation function derivative '''
-    
-    return matrix.map(lambda x: 1 if x > 0 else 0)
-
-def softmax_derivative(matrix: Matrix) -> Matrix:
-    ''' Softmax activation function derivative '''
-    
-    return matrix.map(lambda x: x * (1 - x))
-
-DERIVATIVES: dict[str, Callable[[Matrix], Matrix]] = {
-    'identity': identity_derivative,
-    'sigmoid': sigmoid_derivative,
-    'tanh': tanh_derivative,
-    'relu': relu_derivative,
-    'softmax': softmax_derivative
-}
+from utils import ACTIVATIONS, DERIVATIVES
 
 class NeuralNetwork:
     ''' Neural Network class '''
@@ -84,8 +17,8 @@ class NeuralNetwork:
         momentum: float = 0.9,
         batch_size: int = 200, 
         max_iter: int = 200,
+        max_no_change_count: int = 10,
         tol: float = 1e-4,
-        max_iter_no_change: int = 10,
         verbose: bool = False
     ):
         ''' Create a neural network with the given number of input, hidden and output nodes '''
@@ -98,8 +31,8 @@ class NeuralNetwork:
         self.learning_rate = learning_rate
         self.momentum = momentum
         self.max_iter = max_iter
+        self.max_no_change_count = max_no_change_count
         self.tol = tol
-        self.max_iter_no_change = max_iter_no_change
         self.verbose = verbose
         
         self.activation = ACTIVATIONS[activation]
@@ -119,7 +52,8 @@ class NeuralNetwork:
     def forward_pass(self, X: list[float]) -> list[Matrix]:
         ''' Forward through the neural network and return the layers activations'''
         
-        assert len(X) == self.input_nodes, f'Expected {self.input_nodes} inputs, got {len(X)}'
+        if len(X) != self.input_nodes: 
+            ValueError(f'Expected {self.input_nodes} inputs, got {len(X)}')
         
         layers: list[Matrix] = []
         layer = Matrix.from_array(X)
@@ -137,7 +71,8 @@ class NeuralNetwork:
     def predict(self, X: list[float]) -> list[float]:
         ''' Predict the output of the neural network '''
         
-        assert len(X) == self.input_nodes, f'Expected {self.input_nodes} inputs, got {len(X)}'
+        if len(X) != self.input_nodes: 
+            ValueError(f'Expected {self.input_nodes} inputs, got {len(X)}')
         
         output = Matrix.from_array(X)
         
@@ -152,8 +87,11 @@ class NeuralNetwork:
     def backward_pass(self, X: list[float], y: list[float]) -> float:
         ''' Backward through the neural network updating the weights and biases and return the loss '''
         
-        assert len(X) == self.input_nodes, f'Expected {self.input_nodes} inputs, got {len(X)}'
-        assert len(y) == self.output_nodes, f'Expected {self.output_nodes} outputs, got {len(y)}'
+        if len(X) != self.input_nodes: 
+            ValueError(f'Expected {self.input_nodes} inputs, got {len(X)}')
+            
+        if len(y) != self.output_nodes: 
+            ValueError(f'Expected {self.output_nodes} outputs, got {len(y)}')
         
         layers = self.forward_pass(X)
         
@@ -181,19 +119,20 @@ class NeuralNetwork:
             self.biases[i] += self.biases_update[i]
             self.weights[i] += self.weights_update[i]
 
-        return (0.5 * (expected - layers[-1]) ** 2).mean()
+        loss = (0.5 * (expected - layers[-1]) ** 2).mean()
+
+        return loss
 
     def train(self, X: list[list[float]], y: list[list[float]]) -> None:
         ''' Train the neural network '''
         
-        assert len(X) == len(y), f'Size of X ({len(X)}) and y ({len(y)}) does not match'
+        if len(X) != len(y): 
+            ValueError(f'Data and labels must have the same length')
         
         best_loss: float = float('inf')
-        iter_no_change_count: int = 0
+        no_change_count: int = 0
         
         for curr_iter in range(self.max_iter):
-            # print(f'ITERATION: {curr_iter + 1} | ERROR: {total_error / len(X)}')
-            
             loss_mean = 0.0
             
             for i in range(0, len(X), self.batch_size):
@@ -210,15 +149,15 @@ class NeuralNetwork:
                 print(f'Iteration: {curr_iter + 1} | Loss: {loss_mean}')
             
             if loss_mean > best_loss - self.tol:
-                iter_no_change_count += 1
+                no_change_count += 1
             else:
-                iter_no_change_count = 0
+                no_change_count = 0
                 
             if loss_mean < best_loss:
                 best_loss = loss_mean
             
-            if iter_no_change_count >= self.max_iter_no_change:
+            if no_change_count >= self.max_no_change_count:
                 if self.verbose:
-                    print(f'No improvement in the last {self.max_iter_no_change} iterations, stopping...')
-                
+                    print(f'Early stopping at iteration {curr_iter + 1}')
+                    
                 break
