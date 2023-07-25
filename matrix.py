@@ -23,6 +23,33 @@ class Matrix:
                 
         return matrix
     
+    def zeros(self) -> 'Matrix':
+        ''' Return a matrix of zeros '''
+        
+        matrix = Matrix(self.rows, self.cols)
+        
+        for i in range(self.rows):
+            for j in range(self.cols):
+                matrix.data[i][j] = 0.0
+                
+        return matrix
+    
+    def sum(self) -> float:
+        ''' Return the sum of all elements in the matrix '''
+        
+        sum = 0.0
+        
+        for i in range(self.rows):
+            for j in range(self.cols):
+                sum += self.data[i][j]
+        
+        return sum
+    
+    def mean(self) -> float:
+        ''' Return the mean of all elements in the matrix '''
+        
+        return self.sum() / (self.rows * self.cols)
+    
     def map(self, func: Callable[[float], float]) -> 'Matrix':
         ''' Apply a function to each element of the matrix '''
 
@@ -95,6 +122,17 @@ class Matrix:
             for j in range(matrix.cols):
                 for k in range(self.cols):
                     matrix.data[i][j] += self.data[i][k] * other.data[k][j]
+        
+        return matrix
+    
+    def __pow__(self, power: float) -> 'Matrix':
+        ''' Matrix exponentiation '''
+        
+        matrix = Matrix(self.rows, self.cols)
+        
+        for i in range(matrix.rows):
+            for j in range(matrix.cols):
+                matrix.data[i][j] = self.data[i][j] ** power
         
         return matrix
     
