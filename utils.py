@@ -1,7 +1,15 @@
 from typing import Callable
-from math import exp
+from math import exp as math_exp
 
 from matrix import Matrix
+
+def exp(x: float) -> float:
+    ''' Exponential function '''
+    
+    try:
+        return math_exp(x)
+    except OverflowError:
+        return float('inf')
 
 def identity(matrix: Matrix) -> Matrix:
     ''' Identity activation function '''

@@ -1,5 +1,5 @@
 from typing import Callable
-from random import random
+from random import uniform
 
 class Matrix:
     ''' Matrix class '''
@@ -12,14 +12,14 @@ class Matrix:
         
         self.data = [[0.0 for _ in range(cols)] for _ in range(rows)]
     
-    def randomize(self) -> 'Matrix':
-        ''' Randomize the matrix values '''
+    def randomize(self, bound: float = 1.0) -> 'Matrix':
+        ''' Randomize the matrix values with values between -bound and bound '''
 
         matrix = Matrix(self.rows, self.cols)
         
         for i in range(self.rows):
             for j in range(self.cols):
-                matrix.data[i][j] = random() * 2 - 1    
+                matrix.data[i][j] = uniform(-bound, bound)
                 
         return matrix
     

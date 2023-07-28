@@ -11,7 +11,7 @@ class NeuralNetwork:
         input_nodes: int, 
         hidden_nodes: list[int], 
         output_nodes: int,
-        activation: Literal['identity', 'sigmoid', 'tanh', 'relu'] = 'sigmoid',
+        activation: Literal['identity', 'sigmoid', 'tanh', 'relu'] = 'tanh',
         output_activation: Literal['identity', 'sigmoid', 'softmax'] = 'softmax',
         learning_rate: float = 0.1,
         momentum: float = 0.9,
@@ -43,8 +43,16 @@ class NeuralNetwork:
         
         nodes = [input_nodes] + hidden_nodes + [output_nodes]
         
-        self.biases = [Matrix(n, 1).randomize() for n in nodes[1:]]
-        self.weights = [Matrix(n, prev_n).randomize() for prev_n, n in zip(nodes[:-1], nodes[1:])]
+        self.biases: list[Matrix] = []
+        self.weights: list[Matrix] = []
+        
+        factor = 2 if activation == 'sigmoid' else 6
+        
+        for fan_in, fan_out in zip(nodes[:-1], nodes[1:]):
+            bound = (factor / (fan_in + fan_out)) ** 0.5
+            
+            self.biases.append(Matrix(fan_out, 1).randomize(bound))
+            self.weights.append(Matrix(fan_out, fan_in).randomize(bound))
         
         self.biases_update = [matrix.zeros() for matrix in self.biases]
         self.weights_update = [matrix.zeros() for matrix in self.weights]
@@ -101,7 +109,7 @@ class NeuralNetwork:
         for i in range(len(layers) - 1, -1, -1):
             if i == len(layers) - 1:
                 derivative = self.output_derivative(layers[i])
-                delta = (expected - layers[i]) * derivative
+                delta = (expected - layers[i]) # * derivative
             else:
                 derivative = self.derivative(layers[i])
                 delta = (self.weights[i + 1].T @ delta) * derivative
@@ -156,7 +164,7 @@ class NeuralNetwork:
             if loss_mean < best_loss:
                 best_loss = loss_mean
             
-            if no_change_count >= self.max_no_change_count:
+            if no_change_count > self.max_no_change_count:
                 if self.verbose:
                     print(f'Early stopping at iteration {curr_iter + 1}')
                     
