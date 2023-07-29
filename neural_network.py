@@ -49,7 +49,7 @@ class NeuralNetwork:
         factor = 2 if activation == 'sigmoid' else 6
         
         for fan_in, fan_out in zip(nodes[:-1], nodes[1:]):
-            bound = (factor / (fan_in + fan_out)) ** 0.5
+            bound = (1 / (fan_in)) ** 0.5
             
             self.biases.append(Matrix(fan_out, 1).randomize(bound))
             self.weights.append(Matrix(fan_out, fan_in).randomize(bound))
