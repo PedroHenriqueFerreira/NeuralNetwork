@@ -46,8 +46,6 @@ class NeuralNetwork:
         self.biases: list[Matrix] = []
         self.weights: list[Matrix] = []
         
-        factor = 2 if activation == 'sigmoid' else 6
-        
         for fan_in, fan_out in zip(nodes[:-1], nodes[1:]):
             bound = (1 / (fan_in)) ** 0.5
             
