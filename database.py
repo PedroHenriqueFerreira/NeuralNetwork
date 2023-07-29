@@ -2,7 +2,7 @@ import pandas as pd
 
 from typing import Any, Callable, Union
 
-class DataBase:
+class Database:
     ''' Data base class '''
     
     def __init__(self, columns: list[Any], values: list[list[Any]]):
@@ -37,49 +37,49 @@ class DataBase:
             
         return '\n'.join(lines)
 
-    def map(self, func: Callable[[Any], Any]) -> 'DataBase':
+    def map(self, func: Callable[[Any], Any]) -> 'Database':
         ''' Map the data base with the given function '''
         
         values = [[func(item) for item in row] for row in self.values]
         
-        return DataBase(self.columns.copy(), values)
+        return Database(self.columns.copy(), values)
 
-    def __gt__(self, other: int | float) -> 'DataBase':
+    def __gt__(self, other: int | float) -> 'Database':
         ''' Return if the data base is greater than the given value '''
         
         return self.map(lambda x: x > other)
 
-    def __lt__(self, other: int | float) -> 'DataBase':
+    def __lt__(self, other: int | float) -> 'Database':
         ''' Return if the data base is less than the given value '''
         
         return self.map(lambda x: x < other)
     
-    def __ge__(self, other: int | float) -> 'DataBase':
+    def __ge__(self, other: int | float) -> 'Database':
         ''' Return if the data base is greater than or equal to the given value '''
         
         return self.map(lambda x: x >= other)
     
-    def __le__(self, other: int | float) -> 'DataBase':
+    def __le__(self, other: int | float) -> 'Database':
         ''' Return if the data base is less than or equal to the given value '''
         
         return self.map(lambda x: x <= other)
     
-    def __eq__(self, other: int | float) -> 'DataBase': # type: ignore
+    def __eq__(self, other: int | float) -> 'Database': # type: ignore
         ''' Return if the data base is equal to the given value '''
         
         return self.map(lambda x: x == other)
     
-    def __ne__(self, other: int | float) -> 'DataBase':  # type: ignore
+    def __ne__(self, other: int | float) -> 'Database':  # type: ignore
         ''' Return if the data base is not equal to the given value '''
         
         return self.map(lambda x: x != other)
 
-    def is_in(self, other: list[Any]) -> 'DataBase':
+    def is_in(self, other: list[Any]) -> 'Database':
         ''' Return if the data base is in the given list '''
         
         return self.map(lambda x: x in other)
 
-    def __and__(self, other: 'DataBase') -> 'DataBase':
+    def __and__(self, other: 'Database') -> 'Database':
         ''' Return the & operator between the data base and the given data base '''
 
         if len(self.values) != len(other.values):
@@ -96,9 +96,9 @@ class DataBase:
             else:
                 values.append([False])
 
-        return DataBase([None], values)
+        return Database([None], values)
     
-    def __or__(self, other: 'DataBase') -> 'DataBase':
+    def __or__(self, other: 'Database') -> 'Database':
         ''' Return the | operator between the data base and the given data base '''
 
         if len(self.values) != len(other.values):
@@ -115,9 +115,9 @@ class DataBase:
             else:
                 values.append([False])
 
-        return DataBase([None], values)
+        return Database([None], values)
 
-    def __getitem__(self, key: Union[str, int, slice, list[Any], tuple[Any, ...], 'DataBase']) -> 'DataBase':
+    def __getitem__(self, key: Union[str, int, slice, list[Any], tuple[Any, ...], 'Database']) -> 'Database':
         ''' Filter the data base with the given key '''
         
         if isinstance(key, str):
@@ -126,13 +126,13 @@ class DataBase:
             
             index = self.columns.index(key)
             
-            return DataBase([key], [[row[index]] for row in self.values])
+            return Database([key], [[row[index]] for row in self.values])
         
         elif isinstance(key, int):
             if key >= len(self.columns):
                 raise ValueError(f'Column index {key} out of range')
-            
-            return DataBase(self.columns.copy(), [[row[key]] for row in self.values])
+    
+            return Database([self.columns[key]], [[row[key]] for row in self.values])
         
         elif isinstance(key, list | tuple):
             indexes: dict[Any, int] = {}
@@ -160,21 +160,12 @@ class DataBase:
             
             columns = list(indexes.keys())
             
-            return DataBase(columns, values)
+            return Database(columns, values)
 
         elif isinstance(key, slice):
-            indexes = {column: self.columns.index(column) for column in self.columns[key]}
-            
-            values = []
-            
-            for row in self.values:
-                values.append([row[index] for index in indexes.values()])
-            
-            columns = list(indexes.keys())
-            
-            return DataBase(columns, values)
+            return Database(self.columns[key], [row[key] for row in self.values])
         
-        elif isinstance(key, DataBase):
+        elif isinstance(key, Database):
             if len(self.values) != len(key.values):
                 raise ValueError('Data bases must have the same size')
             
@@ -189,13 +180,42 @@ class DataBase:
                 
                 values.append(row.copy())
             
-            return DataBase(self.columns.copy(), values)
+            return Database(self.columns.copy(), values)
         
         else:
             raise ValueError(f'Invalid key {key}')
+    
+    def __setitem__(self, key: str | int, value: Union[list[Any] | tuple[Any, ...], 'Database']) -> None:
+        ''' Set the given column with the given value '''
         
+        if isinstance(key, str):
+            if key not in self.columns:
+                raise ValueError(f'Column {key} not found')
+            
+            index = self.columns.index(key)
+        
+        elif isinstance(key, int):
+            if key >= len(self.columns):
+                raise ValueError(f'Column index {key} out of range')
+            
+            index = key
+        
+        if isinstance(value, Database):
+            if len(self.values) != len(value.values):
+                raise ValueError('Data bases must have the same rows size')
+            
+            for row, other_row in zip(self.values, value.values):
+                row[index] = other_row[0]
+            
+        elif isinstance(value, list | tuple):
+            if len(value) != len(self.values):
+                raise ValueError('Value must have the same size as the data base rows')
+            
+            for row, item in zip(self.values, value):
+                row[index] = item
+
     @staticmethod
-    def read_csv(path: str, separator: str = ',', columns: list[Any] | None = []) -> 'DataBase':
+    def read_csv(path: str, separator: str = ',', columns: list[Any] | None = []) -> 'Database':
         ''' Read a csv file and return a data base instance '''
 
         values: list[list[Any]] = []
@@ -229,7 +249,36 @@ class DataBase:
         if columns is None:
             columns = []
             
-        return DataBase(columns, values)
+        return Database(columns, values)
     
-digits_1 = pd.read_csv('digits.csv')
-digits_2 = DataBase.read_csv('digits.csv')
+    def sum(self) -> float:
+        ''' Return the sum of all items in the data base '''
+        
+        return sum([sum(row) for row in self.values]) # type: ignore
+    
+    def count(self) -> int:
+        ''' Return the number of items in the data base '''
+        
+        return len(self.values) * len(self.columns)
+    
+    def mean(self) -> float:
+        ''' Return the mean of all values in the data base '''
+        
+        if self.count() == 0:
+            return 0
+        
+        return self.sum() / self.count()
+    
+    def std(self) -> float:
+        ''' Return the standard deviation of all values in the data base '''
+        
+        if self.count() == 0:
+            return 0
+        
+        mean = self.mean()   
+             
+        var = sum([(item - mean) ** 2 for row in self.values for item in row]) / self.count()
+        
+        std: float = var ** 0.5
+        
+        return std if std != 0 else 1
