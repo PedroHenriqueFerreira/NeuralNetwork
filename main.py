@@ -2,14 +2,14 @@ from sklearn import datasets, preprocessing
 from neural_network import NeuralNetwork
 from database import Database
 import pandas as pd
-from scaler import Scaler
+from preprocessing import StandardScaler, LabelEncoder, OneHotEncoder
 
 digits = Database.read_csv('digits.csv', columns=None)
 
-scaler = Scaler()
+scaler = StandardScaler()
 
-X = scaler.fit_transform(digits[:-1]).values
-y = digits[-1].values
+X = scaler.fit_transform(digits[:-1])
+y = digits[-1]
 
 # def one_hot_encoder(y: int) -> list[float]:
 #     array = [0.0] * 10
