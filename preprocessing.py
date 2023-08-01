@@ -29,7 +29,7 @@ class StandardScaler:
         result = Database()
         
         for i, column in enumerate(database.columns):
-            result[column] = database[column].map(lambda x: (x - self.mean[i]) / self.std[i])
+            result[column] = database[column].map(lambda x: (x - self.mean[i]) / self.std[i]).values
             
         return result
     
@@ -45,7 +45,7 @@ class StandardScaler:
         result = Database()
         
         for i, column in enumerate(database.columns):
-            result[column] = database[column].map(lambda x: (x * self.std[i]) + self.mean[i])
+            result[column] = database[column].map(lambda x: (x * self.std[i]) + self.mean[i]).values
             
         return result
     
@@ -67,7 +67,7 @@ class LabelEncoder:
         if len(database.columns) != 1:
             raise ValueError('Database must have a single column')
         
-        self.classes.extend(database[0].unique())
+        self.classes.extend(database.unique())
     
     def transform(self, database: Database) -> Database:
         ''' Transform the data using the encoder '''
@@ -78,7 +78,7 @@ class LabelEncoder:
         if len(database.columns) != 1:
             raise ValueError('Database must have a single column')
         
-        return database[0].map(lambda x: self.classes.index(x))
+        return database.map(lambda x: self.classes.index(x))
     
     def inverse_transform(self, database: Database) -> Database:
         ''' Inverse transform the data using the encoder '''
@@ -89,7 +89,7 @@ class LabelEncoder:
         if len(database.columns) != 1:
             raise ValueError('Database must have a single column')
     
-        return database[0].map(lambda x: self.classes[x])
+        return database.map(lambda x: self.classes[x])
     
     def fit_transform(self, database: Database) -> Database:
         ''' Fit and transform the data using the encoder '''
@@ -99,6 +99,7 @@ class LabelEncoder:
     
 class OneHotEncoder:
     def __init__(self):
+        self.column = ''
         self.categories: list[str] = []
         
     def fit(self, database: Database) -> None:
@@ -120,14 +121,12 @@ class OneHotEncoder:
         if len(database.columns) != 1:
             raise ValueError('Database must have a single column')
         
-        column = database.columns[0]
+        self.column = database.columns[0]
         
         result = Database()
         
         for category in self.categories:
-            database.columns[0] = column
-            
-            result[f'{column}_{category}'] = database[0].map(lambda x: int(x == category))
+            result[f'{self.column}_{category}'] = database.map(lambda x: int(x == category)).values
             
         return result
     
@@ -140,12 +139,7 @@ class OneHotEncoder:
         if len(database.columns) != len(self.categories):
             raise ValueError('Invalid database')
         
-        result = Database(['aa'], [[''] for _ in database.values])
-        
-        for i, row in enumerate(database.values):
-            result.values[i] = [self.categories[row.index(1)]]
-        
-        return result
+        return Database([self.column], [[self.categories[row.index(1)]] for row in database.values])
     
     def fit_transform(self, database: Database) -> Database:
         ''' Fit and transform the data using the encoder '''
