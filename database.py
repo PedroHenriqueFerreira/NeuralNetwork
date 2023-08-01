@@ -5,8 +5,14 @@ from typing import Any, Callable, Union
 class Database:
     ''' Data base class '''
     
-    def __init__(self, columns: list[str], values: list[list[Any]]):
+    def __init__(self, columns: list[str] | None = None, values: list[list[Any]] | None = None):
         ''' Create a new data base instance with the given columns and values '''
+        
+        if columns is None:
+            columns = []
+            
+        if values is None:
+            values = []
         
         if len(set(columns)) != len(columns):
             raise ValueError('Columns must be unique')
@@ -79,6 +85,11 @@ class Database:
         
         return self.map(lambda x: x in other)
 
+    def __invert__(self) -> 'Database':
+        ''' Return the ~ operator of the data base '''
+        
+        return self.map(lambda x: not x)
+
     def __and__(self, other: 'Database') -> 'Database':
         ''' Return the & operator between the data base and the given data base '''
 
@@ -111,61 +122,54 @@ class Database:
 
     def __getitem__(
         self, 
-        key: Union[str, int, slice, list[str | int], tuple[str | int, ...], 'Database']
+        key: Union[str, int, slice, list[str | int | slice], tuple[str | int | slice, ...], 'Database']
     ) -> 'Database':
         ''' Filter the data base with the given key '''
         
-        if isinstance(key, str):
-            if key not in self.columns:
-                raise ValueError(f'Column {key} not found')
-            
-            index = self.columns.index(key)
-            
-            return Database([key], [[row[index]] for row in self.values])
+        indexes: list[int] = []
         
-        elif isinstance(key, int):
-            if key < 0 or key >= len(self.columns):
-                raise ValueError(f'Column index {key} out of range')
-    
-            return Database([self.columns[key]], [[row[key]] for row in self.values])
+        key = key if isinstance(key, list | tuple | Database) else [key]
         
-        elif isinstance(key, list | tuple):
-            indexes: dict[str, int] = {}
-        
+        if isinstance(key, list | tuple):
             for column in key:
                 if isinstance(column, int):
-                    if column < 0 or column >= len(self.columns):
+                    if column < -len(self.columns) or column >= len(self.columns):
                         raise ValueError(f'Column index {column} out of range')
                     
-                    indexes[self.columns[column]] = column
+                    column = column if column >= 0 else len(self.columns) + column
+                    
+                    indexes.append(column)
                     
                 elif isinstance(column, str):
                     if column not in self.columns:
                         raise ValueError(f'Column {column} not found')
                     
-                    indexes[column] = self.columns.index(column)
+                    indexes.append(self.columns.index(column))
+                
+                elif isinstance(column, slice):
+                    slice_values = [column.start, column.stop, column.step]
+            
+                    if isinstance(slice_values[-1], str):
+                        raise ValueError(f'Invalid step {slice_values[-1]}')
                     
+                    for i, slice_value in enumerate(slice_values):
+                        if isinstance(slice_value, str):
+                            if slice_value not in self.columns:
+                                raise ValueError(f'Column {slice_value} not found')
+                            
+                            slice_values[i] = self.columns.index(slice_value)
+                        elif not isinstance(slice_value, int) and slice_value is not None:
+                            raise ValueError(f'Invalid index {slice_value}')
+                    
+                    range_values = slice(*slice_values).indices(len(self.columns))
+                    
+                    indexes.extend(list(range(*range_values)))
+                
                 else:
                     raise ValueError(f'Invalid column {column}')
-            
-            return Database(list(indexes.keys()), [[row[i] for i in indexes.values()] for row in self.values])
-
-        elif isinstance(key, slice):
-            values = [key.start, key.stop, key.step]
-            
-            if isinstance(values[-1], str):
-                raise ValueError(f'Invalid step {values[-1]}')
-            
-            for i, value in enumerate(values):
-                if isinstance(value, str):
-                    if value not in self.columns:
-                        raise ValueError(f'Column {value} not found')
-                    
-                    values[i] = self.columns.index(value)
-                elif not isinstance(value, int) and value is not None:
-                    raise ValueError(f'Invalid index {value}')
-            
-            return Database(self.columns[slice(*values)], [row[slice(*values)] for row in self.values])
+                
+            columns = [self.columns[index] for index in indexes]
+            values = [[row[index] for index in indexes] for row in self.values]
         
         elif isinstance(key, Database):
             if len(self.values) != len(key.values):
@@ -178,125 +182,132 @@ class Database:
                 raise ValueError(f'Invalid data base columns')
             
             columns = self.columns[:]
-            rows = [row[:] for row, other_row in zip(self.values, key.values) if all(other_row)]
-             
-            return Database(columns, rows)
+            values = [row[:] for row, other_row in zip(self.values, key.values) if all(other_row)]
         
         else:
             raise ValueError(f'Invalid key {key}')
     
+        return Database(columns, values)
+    
     def __setitem__(
-        self, 
-        key: str | int | slice, value: Union[list[Any], tuple[Any, ...], 'Database']
+        self,
+        key: str | int | slice | list[str | int | slice] | tuple[str | int | slice, ...], 
+        values: Union[list[Any], tuple[Any, ...], 'Database']
     ) -> None:
-        ''' Set the given column with the given value '''
+        ''' Set the given column with the given values '''
         
-        index = 0
-        column: str = ''
-        
-        if isinstance(key, str):
-            if key not in self.columns:
-                index = len(self.columns)
-            else:
-                index = self.columns.index(key)
-                
-            column = key
-                
-        elif isinstance(key, int):
-            if key < 0 or key >= len(self.columns):
-                raise ValueError(f'Column index {key} out of range')
-            
-            index = key
-            
-            column = self.columns[key]
-            
-        elif isinstance(key, slice):
-            if isinstance(key.start, str):
-                if key.start not in self.columns:
-                    raise ValueError(f'Column {key.start} not found')
-                
-                index = self.columns.index(key.start)
-            elif isinstance(key.start, int):
-                if key.start < 0 or key.start >= len(self.columns):
-                    raise ValueError(f'Column index {key.start} out of range')
-                
-                index = key.start
-            elif key.start is not None:
-                raise ValueError(f'Invalid slice start {key.start}')
-            
-            column = self.columns[index]
-        else:
-            raise ValueError(f'Invalid key {key}')
-            
-        if index < len(self.columns):
-            del self[key]
-            
-        if isinstance(value, Database):
-            if len(self.values) != len(value.values):
-                raise ValueError('Invalid data base shape')
-            
-            column_index = index
-            
-            for column in value.columns:
-                if column in self.columns:
-                    raise ValueError(f'Column {column} already exists')
-                
-                self.columns.insert(column_index, column)
-                
-                column_index += 1
-            
-            row_index = index
-                
-            for row, other_row in zip(self.values, value.values):
-                for other_item in other_row:
-                    row.insert(row_index, other_item)
-                    
-                    row_index += 1
-                    
-                row_index = index
-            
-        elif isinstance(value, list | tuple):
-            if len(value) != len(self.values):
-                raise ValueError('Invalid data shape')
-            
-            self.columns.insert(index, column)
-            
-            for row, item in zip(self.values, value):
-                row.insert(index, item)
-             
-        else:
-            raise ValueError(f'Invalid value {value}')
+        indexes: list[int] = []
+        columns: list[str] = []
 
-    def __delitem__(self, key: str | int | slice | list[str | int] | tuple[str | int, ...]) -> None:
-        ''' Delete the given column '''
-        
-        if isinstance(key, str):
-            if key not in self.columns:
-                raise ValueError(f'Column {key} not found')
-            
-            index = self.columns.index(key)
-            
-            del self.columns[index]
-            
-            for row in self.values:
-                del row[index]
-        
-        elif isinstance(key, int):
-            if key >= len(self.columns):
-                raise ValueError(f'Column index {key} out of range')
-        
-            del self.columns[key]
-            
-            for row in self.values:
-                del row[key]
+        key = key if isinstance(key, list | tuple) else [key]
 
-        elif isinstance(key, list | tuple):
-            columns: list[str] = []
-        
+        if isinstance(key, list | tuple):
+            new_index = len(self.columns)
+            
             for column in key:
                 if isinstance(column, int):
-                    if column < 0 or column >= len(self.columns):
+                    if column < -len(self.columns) or column >= len(self.columns):
                         raise ValueError(f'Column index {column} out of range')
+                    
+                    column = column if column >= 0 else len(self.columns) + column
+                    
+                    indexes.append(column)
+                    columns.append(self.columns[column])
+                    
+                elif isinstance(column, str):
+                    if column not in self.columns:
+                        if isinstance(values, Database):
+                            raise ValueError(f'Column {column} not found')
+                        else:
+                            indexes.append(new_index)
+                            new_index += 1
+                    else:
+                        indexes.append(self.columns.index(column))
+                    
+                    columns.append(column)
+                
+                elif isinstance(column, slice):
+                    slice_values = [column.start, column.stop, column.step]
+
+                    step = slice_values[-1]
+            
+                    if isinstance(step, str):
+                        raise ValueError(f'Invalid step {slice_values[-1]}')
+                    
+                    for i, slice_value in enumerate(slice_values):
+                        if isinstance(slice_value, str):
+                            if slice_value not in self.columns:
+                                raise ValueError(f'Column {slice_value} not found')
+                            
+                            slice_values[i] = self.columns.index(slice_value)
+                        elif not isinstance(slice_value, int) and slice_value is not None:
+                            raise ValueError(f'Invalid index {slice_value}')
+                    
+                    range_values = slice(*slice_values).indices(len(self.columns))
+                    
+                    indexes.extend(list(range(*range_values)))
+                    columns.extend([self.columns[i] for i in range(*range_values)])    
+                
+                else:
+                    raise ValueError(f'Invalid column {column}')
+                
+        else:
+            raise ValueError(f'Invalid key {key}')
+    
+        if len(set(columns)) != len(columns):
+            raise ValueError('Columns must be unique')
+    
+        del self[[index for index in indexes if index < len(self.columns)]]
+        
+        if isinstance(values, Database):
+            indexes = list(range(indexes[0], indexes[0] + len(values.columns)))
+        
+        columns = values.columns if isinstance(values, Database) else columns
+        values = values.values if isinstance(values, Database) else values
+        
+        values = [value if isinstance(value, list | tuple) else [value] for value in values]
+        
+        if len(self.values) > 0 and len(self.values) != len(values):
+            raise ValueError('Invalid values shape')
+        
+        if len(values) > 0 and len(values[0]) != len(columns):
+            raise ValueError('Invalid values shape')
+        
+        columns = [column for _, column in sorted(zip(indexes, columns))]
+        values = [[item for _, item in sorted(zip(indexes, value))] for value in values]
+        
+        indexes = sorted(indexes)
+        
+        for i, column in enumerate(columns):
+            if column in self.columns:
+                raise ValueError(f'Column {column} already exists')
+            
+            self.columns.insert(indexes[i], column)
+            
+            if len(self.values) == 0:
+                for other_row in values:
+                    self.values.append([other_row[i]])
+            else:
+                for row, other_row in zip(self.values, values):
+                    row.insert(indexes[i], other_row[i])
+
+    def __delitem__(
+        self, 
+        key: str | int | slice | list[str | int | slice] | tuple[str | int | slice, ...]
+    ) -> None:
+        ''' Delete the given column '''
+        
+        columns: list[str] = []
+        
+        key = key if isinstance(key, list | tuple) else [key]
+
+        if isinstance(key, list | tuple):
+            for column in key:
+                if isinstance(column, int):
+                    if column < -len(self.columns) or column >= len(self.columns):
+                        raise ValueError(f'Column index {column} out of range')
+                    
+                    column = column if column >= 0 else len(self.columns) + column
                     
                     columns.append(self.columns[column])
                     
@@ -305,41 +316,43 @@ class Database:
                         raise ValueError(f'Column {column} not found')
                     
                     columns.append(column)
+                
+                elif isinstance(column, slice):
+                    slice_values = [column.start, column.stop, column.step]
+            
+                    if isinstance(slice_values[-1], str):
+                        raise ValueError(f'Invalid step {slice_values[-1]}')
                     
+                    for i, slice_value in enumerate(slice_values):
+                        if isinstance(slice_value, str):
+                            if slice_value not in self.columns:
+                                raise ValueError(f'Column {slice_value} not found')
+                            
+                            slice_values[i] = self.columns.index(slice_value)
+                        elif not isinstance(slice_value, int) and slice_value is not None:
+                            raise ValueError(f'Invalid index {slice_value}')
+                    
+                    range_values = slice(*slice_values).indices(len(self.columns))
+                    
+                    columns.extend([self.columns[i] for i in range(*range_values)])
+                
                 else:
                     raise ValueError(f'Invalid column {column}')
-            
-            for column in columns:
-                index = self.columns.index(column)
-                
-                del self.columns[index]
-                
-                for row in self.values:
-                    del row[index]
-                    
-        elif isinstance(key, slice):
-            values = [key.start, key.stop, key.step]
-            
-            if isinstance(values[-1], str):
-                raise ValueError(f'Invalid step {values[-1]}')
-            
-            for i, value in enumerate(values):
-                if isinstance(value, str):
-                    if value not in self.columns:
-                        raise ValueError(f'Column {value} not found')
-                    
-                    values[i] = self.columns.index(value)
-                elif not isinstance(value, int) and value is not None:
-                    raise ValueError(f'Invalid index {value}')
-            
-            del self.columns[slice(*values)]
-            
-            for row in self.values:
-                del row[slice(*values)]
-        
+                            
         else:
             raise ValueError(f'Invalid key {key}')
         
+        if len(set(columns)) != len(columns):
+            raise ValueError('Columns must be unique')
+        
+        for column in columns:
+            index = self.columns.index(column)
+            
+            del self.columns[index]
+            
+            for row in self.values:
+                del row[index]
+            
     def unique(self) -> list[Any]:
         ''' Return the unique values of the data base '''
         

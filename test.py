@@ -1,10 +1,9 @@
 from database import Database
-from preprocessing import LabelEncoder, OneHotEncoder
+# from preprocessing import LabelEncoder, OneHotEncoder
 
-hot_encoder = OneHotEncoder()
+# hot_encoder = OneHotEncoder()
+# label_encoder = LabelEncoder()
 
 db = Database.read_csv('test.csv')
-
-db[0:2] = [1,2,3,4,5,6]
 
 print(db)

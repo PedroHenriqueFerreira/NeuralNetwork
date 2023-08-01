@@ -24,9 +24,9 @@ class StandardScaler:
             raise ValueError('Scaler must be fitted before transforming data')
         
         if len(self.mean) != len(database.columns) or len(self.std) != len(database.columns):
-            raise ValueError('Scaler must be fitted to the same number of columns as the database')
+            raise ValueError('Invalid database')
         
-        result = database[:]
+        result = Database()
         
         for i, column in enumerate(database.columns):
             result[column] = database[column].map(lambda x: (x - self.mean[i]) / self.std[i])
@@ -40,9 +40,9 @@ class StandardScaler:
             raise ValueError('Scaler must be fitted before transforming data')
         
         if len(self.mean) != len(database.columns) or len(self.std) != len(database.columns):
-            raise ValueError('Database must have the same number of columns as the scaler')
+            raise ValueError('Invalid database')
         
-        result = database[:]
+        result = Database()
         
         for i, column in enumerate(database.columns):
             result[column] = database[column].map(lambda x: (x * self.std[i]) + self.mean[i])
@@ -67,9 +67,7 @@ class LabelEncoder:
         if len(database.columns) != 1:
             raise ValueError('Database must have a single column')
         
-        column = database.columns[0]
-        
-        self.classes.extend(database[column].unique())
+        self.classes.extend(database[0].unique())
     
     def transform(self, database: Database) -> Database:
         ''' Transform the data using the encoder '''
@@ -80,11 +78,7 @@ class LabelEncoder:
         if len(database.columns) != 1:
             raise ValueError('Database must have a single column')
         
-        column = database.columns[0]
-        
-        database[column] = database[column].map(lambda x: self.classes.index(x))
-        
-        return database
+        return database[0].map(lambda x: self.classes.index(x))
     
     def inverse_transform(self, database: Database) -> Database:
         ''' Inverse transform the data using the encoder '''
@@ -94,12 +88,8 @@ class LabelEncoder:
         
         if len(database.columns) != 1:
             raise ValueError('Database must have a single column')
-        
-        column = database.columns[0]
-        
-        database[column] = database[column].map(lambda x: self.classes[x])
-        
-        return database
+    
+        return database[0].map(lambda x: self.classes[x])
     
     def fit_transform(self, database: Database) -> Database:
         ''' Fit and transform the data using the encoder '''
@@ -132,14 +122,13 @@ class OneHotEncoder:
         
         column = database.columns[0]
         
-        result = Database([], [[] for _ in range(len(database.values))])
+        result = Database()
         
         for category in self.categories:
-            database_category = database[column].map(lambda x: 1.0 if x == category else 0.0)
-            database_category.columns[0] += f'_{category}'
+            database.columns[0] = column
             
-            result.extend(database_category)
-        
+            result[f'{column}_{category}'] = database[0].map(lambda x: int(x == category))
+            
         return result
     
     def inverse_transform(self, database: Database) -> Database:
@@ -149,19 +138,14 @@ class OneHotEncoder:
             raise ValueError('Encoder must be fitted before transforming data')
         
         if len(database.columns) != len(self.categories):
-            raise ValueError('Database must have the same number of columns as the encoder')
+            raise ValueError('Invalid database')
         
-        column = database.columns[0]
+        result = Database(['aa'], [[''] for _ in database.values])
         
-        new_database = Database([], [[] for _ in range(len(database.values))])
+        for i, row in enumerate(database.values):
+            result.values[i] = [self.categories[row.index(1)]]
         
-        for i, category in enumerate(self.categories):
-            database_category = database[column].map(lambda x: category if x == 1.0 else '')
-            database_category.columns[0] += f'_{category}'
-            
-            new_database.extend(database_category)
-        
-        return new_database
+        return result
     
     def fit_transform(self, database: Database) -> Database:
         ''' Fit and transform the data using the encoder '''

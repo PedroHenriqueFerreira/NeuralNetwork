@@ -1,7 +1,4 @@
 x1,x2,x3,y
-a,b,c,d
-d,e,f,d
-a,b,c,d
-b,b,c,d
-d,b,c,d
-h,b,c,d
+a,b,c,0
+d,e,f,1
+a,b,c,2
