@@ -449,10 +449,3 @@ class Database:
             
             for row in self.values:
                 f.write(separator.join([str(item) for item in row]) + '\n')
-
-db = Database(columns=['A','B','C'], values=[[1, 2, 3], [4, 5, 6], [7, 8, 9]])
-
-# TESTAR SET COM BANCOg
-db[1::-1, 'C'] = [['K', 'L', 'AA'], ['N', 'O', 'BB'], ['Q', 'R', 'CC']]
-
-print(db)
