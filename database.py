@@ -50,6 +50,11 @@ class Database:
         
         return Database(self.columns[:], values)
 
+    def __invert__(self) -> 'Database':
+        ''' Return the ~ operator of the data base '''
+        
+        return self.map(lambda x: not x)
+
     def __gt__(self, other: int | float) -> 'Database':
         ''' Return if the data base values is greater than the given value '''
         
@@ -84,11 +89,6 @@ class Database:
         ''' Return if the data base values is in the given list '''
         
         return self.map(lambda x: x in other)
-
-    def __invert__(self) -> 'Database':
-        ''' Return the ~ operator of the data base '''
-        
-        return self.map(lambda x: not x)
 
     def __and__(self, other: 'Database') -> 'Database':
         ''' Return the & operator between the data base and the given data base '''
@@ -375,7 +375,7 @@ class Database:
         for row in self.values:
             for item in row:
                 if not isinstance(item, int | float | bool):
-                    raise ValueError('Data base must contain only numbers to calculate the sum')
+                    raise ValueError('Data base must contain only numbers or booleans for sum')
                 
                 result += item
         
@@ -402,7 +402,7 @@ class Database:
         
         mean = self.mean()   
              
-        var = sum([(item - mean) ** 2 for row in self.values for item in row]) / self.count()
+        var = self.map(lambda item: (item - mean) ** 2).sum() / self.count()
         
         std: float = var ** 0.5
         
@@ -423,8 +423,6 @@ class Database:
                 for item in items:
                     item = item.strip()
                     
-                    if item == '':
-                        row.append(None)
                     if item.isnumeric():
                         row.append(int(item))
                     elif item.replace('.', '', 1).isnumeric():
@@ -439,8 +437,17 @@ class Database:
                     columns = [str(item) for item in row]
                 else:
                     values.append(row)
-        
-        if columns is None:
-            columns = []
             
         return Database(columns, values)
+    
+    def to_csv(self, path: str, separator: str = ',', columns: list[str] | None = []) -> None:
+        ''' Save the data base to a csv file '''
+        
+        with open(path, 'w') as f:
+            if columns is not None:
+                columns = columns if len(columns) > 0 else self.columns
+                
+                f.write(separator.join(columns) + '\n')
+            
+            for row in self.values:
+                f.write(separator.join([str(item) for item in row]) + '\n')

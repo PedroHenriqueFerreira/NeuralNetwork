@@ -9,9 +9,9 @@ class NeuralNetwork:
     def __init__(
         self, 
         input_nodes: int, 
-        hidden_nodes: list[int], 
+        hidden_nodes: list[int],
         output_nodes: int,
-        activation: Literal['identity', 'sigmoid', 'tanh', 'relu'] = 'tanh',
+        activation: Literal['identity', 'sigmoid', 'tanh', 'relu'] = 'sigmoid',
         output_activation: Literal['identity', 'sigmoid', 'softmax'] = 'softmax',
         learning_rate: float = 0.1,
         momentum: float = 0.9,
