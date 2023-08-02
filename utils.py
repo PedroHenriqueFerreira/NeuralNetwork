@@ -9,7 +9,8 @@ def exp(x: float) -> float:
     try:
         return math_exp(x)
     except OverflowError:
-        return float('inf')
+        # TODO: Handle overflow
+        return 1e-10
 
 def identity(matrix: Matrix) -> Matrix:
     ''' Identity activation function '''

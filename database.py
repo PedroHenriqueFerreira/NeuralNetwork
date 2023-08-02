@@ -11,6 +11,9 @@ class Database:
         if columns is None:
             columns = []
             
+            if values is not None and len(values) > 0: 
+                columns.extend([str(i) for i in range(len(values[0]))])
+            
         if values is None:
             values = []
         
@@ -46,17 +49,15 @@ class Database:
     def map(self, func: Callable[[Any], Any]) -> 'Database':
         ''' Map the data base with the given function '''
         
-        values = [[func(item) for item in row] for row in self.values]
-        
-        return Database(self.columns[:], values)
+        return Database(self.columns[:], [[func(item) for item in row] for row in self.values])
 
     def __invert__(self) -> 'Database':
-        ''' Return the ~ operator of the data base '''
+        ''' Return the inverse of the data base values '''
         
         return self.map(lambda x: not x)
 
     def __gt__(self, other: int | float) -> 'Database':
-        ''' Return if the data base values is greater than the given value '''
+        ''' Return if the data base values is greater than the given value'''
         
         return self.map(lambda x: x > other)
 
@@ -429,12 +430,9 @@ class Database:
                         row.append(float(item))
                     else:
                         row.append(item)
-                
-                if columns is None:
-                    columns = [str(i) for i in range(len(row))]
                     
-                if len(columns) == 0:
-                    columns = [str(item) for item in row]
+                if columns is not None and len(columns) == 0:
+                    columns.extend([str(item) for item in row])
                 else:
                     values.append(row)
             
@@ -451,3 +449,10 @@ class Database:
             
             for row in self.values:
                 f.write(separator.join([str(item) for item in row]) + '\n')
+
+db = Database(columns=['A','B','C'], values=[[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+
+# TESTAR SET COM BANCOg
+db[1::-1, 'C'] = [['K', 'L', 'AA'], ['N', 'O', 'BB'], ['Q', 'R', 'CC']]
+
+print(db)

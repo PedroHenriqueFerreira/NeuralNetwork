@@ -116,7 +116,7 @@ class Standardizer:
         result = Database()
         
         for i, column in enumerate(database.columns):
-            result[column] = database[column].map(lambda x: (x - self.mean[i]) / self.std[i])
+            result[column] = database[column].map(lambda x: (x - self.mean[i]) / self.std[i]).values
             
         return result
     
@@ -132,7 +132,7 @@ class Standardizer:
         result = Database()
         
         for i, column in enumerate(database.columns):
-            result[column] = database[column].map(lambda x: (x * self.std[i]) + self.mean[i])
+            result[column] = database[column].map(lambda x: (x * self.std[i]) + self.mean[i]).values
             
         return result
     

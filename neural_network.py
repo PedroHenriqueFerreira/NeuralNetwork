@@ -12,7 +12,7 @@ class NeuralNetwork:
         hidden_nodes: list[int],
         output_nodes: int,
         activation: Literal['identity', 'sigmoid', 'tanh', 'relu'] = 'sigmoid',
-        output_activation: Literal['identity', 'sigmoid', 'softmax'] = 'softmax',
+        output_activation: Literal['identity', 'sigmoid', 'softmax'] = 'sigmoid',
         learning_rate: float = 0.1,
         momentum: float = 0.9,
         batch_size: int = 200, 
