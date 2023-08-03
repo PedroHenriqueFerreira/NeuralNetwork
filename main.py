@@ -20,8 +20,6 @@ y_train, y_test = digits[64:].split(0.8)
 
 nn.fit(X_train.values, y_train.values)
 
-total = 0
-
 predict = nn.predict(X_test.values)
 accuracy = sum(predict[i] == y_test.values[i] for i in range(len(predict))) / len(predict)
     
