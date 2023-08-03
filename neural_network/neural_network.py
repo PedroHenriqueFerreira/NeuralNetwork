@@ -1,16 +1,14 @@
 from typing import Literal
 
-from matrix import Matrix
-from utils import ACTIVATIONS, DERIVATIVES
+from .matrix import *
+from .activations import *
 
 class NeuralNetwork:
     ''' Neural Network class '''
     
     def __init__(
-        self, 
-        input_nodes: int, 
+        self,  
         hidden_nodes: list[int],
-        output_nodes: int,
         activation: Literal['identity', 'sigmoid', 'tanh', 'relu'] = 'sigmoid',
         output_activation: Literal['identity', 'sigmoid', 'softmax'] = 'sigmoid',
         learning_rate: float = 0.1,
@@ -23,9 +21,10 @@ class NeuralNetwork:
     ):
         ''' Create a neural network with the given number of input, hidden and output nodes '''
         
-        self.input_nodes = input_nodes
+        self.input_nodes: int = 0
+        self.output_nodes: int = 0
+        
         self.hidden_nodes = hidden_nodes
-        self.output_nodes = output_nodes
         
         self.batch_size = batch_size
         self.learning_rate = learning_rate
@@ -41,25 +40,62 @@ class NeuralNetwork:
         self.derivative = DERIVATIVES[activation]
         self.output_derivative = DERIVATIVES[output_activation]
         
-        nodes = [input_nodes] + hidden_nodes + [output_nodes]
-        
         self.biases: list[Matrix] = []
         self.weights: list[Matrix] = []
+
+        self.biases_update: list[Matrix] = []
+        self.weights_update: list[Matrix] = []
+    
+    def initialize(self, input_nodes: int, output_nodes: int) -> None:
+        ''' Initialize the weights and biases of the neural network '''
         
-        for fan_in, fan_out in zip(nodes[:-1], nodes[1:]):
-            bound = (1 / fan_in) ** 0.5
+        self.input_nodes = input_nodes
+        self.output_nodes = output_nodes
+        
+        nodes = [input_nodes] + self.hidden_nodes + [output_nodes]
+        
+        self.biases.clear()
+        self.weights.clear()
+        
+        for n_in, n_out in zip(nodes[:-1], nodes[1:]):
+            bound = (1 / n_in) ** 0.5
             
-            self.biases.append(Matrix(fan_out, 1).randomize(bound))
-            self.weights.append(Matrix(fan_out, fan_in).randomize(bound))
+            self.biases.append(Matrix(n_out, 1).randomize(bound))
+            self.weights.append(Matrix(n_out, n_in).randomize(bound))
         
-        self.biases_update = [matrix.zeros() for matrix in self.biases]
-        self.weights_update = [matrix.zeros() for matrix in self.weights]
+        self.biases_update.clear()
+        self.weights_update.clear()
+        
+        self.biases_update.extend([matrix.zeros() for matrix in self.biases])
+        self.weights_update.extend([matrix.zeros() for matrix in self.weights])
+    
+    def predict(self, X: list[float]) -> list[float]:
+        ''' Predict the output of the neural network '''
+        
+        if len(self.weights) == 0:
+            raise ValueError('The neural network must be fitted before predicting')
+        
+        if len(X) != self.input_nodes: 
+            raise ValueError(f'Expected {self.input_nodes} inputs, got {len(X)}')
+        
+        output = Matrix.from_array(X)
+        
+        for bias, weight in zip(self.biases, self.weights):
+            if bias == self.biases[-1]:
+                output = self.output_activation(weight @ output + bias)
+            else:
+                output = self.activation(weight @ output + bias)
+    
+        return output.to_array()
     
     def forward_pass(self, X: list[float]) -> list[Matrix]:
         ''' Forward through the neural network and return the layers activations'''
         
+        if len(self.weights) == 0:
+            raise ValueError('The neural network must be fitted before forward passing')
+        
         if len(X) != self.input_nodes: 
-            ValueError(f'Expected {self.input_nodes} inputs, got {len(X)}')
+            raise ValueError(f'Expected {self.input_nodes} inputs, got {len(X)}')
         
         layers: list[Matrix] = []
         layer = Matrix.from_array(X)
@@ -74,35 +110,25 @@ class NeuralNetwork:
 
         return layers
     
-    def predict(self, X: list[float]) -> list[float]:
-        ''' Predict the output of the neural network '''
-        
-        if len(X) != self.input_nodes: 
-            ValueError(f'Expected {self.input_nodes} inputs, got {len(X)}')
-        
-        output = Matrix.from_array(X)
-        
-        for bias, weight in zip(self.biases, self.weights):
-            if bias == self.biases[-1]:
-                output = self.output_activation(weight @ output + bias)
-            else:
-                output = self.activation(weight @ output + bias)
-    
-        return output.to_array()
-    
     def backward_pass(self, X: list[float], y: list[float]) -> float:
         ''' Backward through the neural network updating the weights and biases and return the loss '''
         
+        if len(self.weights) == 0:
+            raise ValueError('The neural network must be fitted before backward passing')
+        
         if len(X) != self.input_nodes: 
-            ValueError(f'Expected {self.input_nodes} inputs, got {len(X)}')
+            raise ValueError(f'Expected {self.input_nodes} inputs, got {len(X)}')
             
         if len(y) != self.output_nodes: 
-            ValueError(f'Expected {self.output_nodes} outputs, got {len(y)}')
+            raise ValueError(f'Expected {self.output_nodes} outputs, got {len(y)}')
+        
         
         layers = self.forward_pass(X)
         
         inputs = Matrix.from_array(X)
         expected = Matrix.from_array(y)
+        
+        loss = (0.5 * (expected - layers[-1]) ** 2).mean()
         
         for i in range(len(layers) - 1, -1, -1):
             if i == len(layers) - 1:
@@ -125,15 +151,15 @@ class NeuralNetwork:
             self.biases[i] += self.biases_update[i]
             self.weights[i] += self.weights_update[i]
 
-        loss = (0.5 * (expected - layers[-1]) ** 2).mean()
-
         return loss
 
-    def train(self, X: list[list[float]], y: list[list[float]]) -> None:
+    def fit(self, X: list[list[float]], y: list[list[float]]) -> None:
         ''' Train the neural network '''
         
-        if len(X) != len(y): 
-            ValueError(f'Data and labels must have the same length')
+        if len(X) == 0 or len(y) == 0 or len(X) != len(y): 
+            raise ValueError(f'Invalid data provided')
+        
+        self.initialize(len(X[0]), len(y[0]))
         
         best_loss: float = float('inf')
         no_change_count: int = 0
@@ -144,8 +170,8 @@ class NeuralNetwork:
             for i in range(0, len(X), self.batch_size):
                 batch = zip(X[i:i + self.batch_size], y[i:i + self.batch_size])
                 
-                for Xi, yi in batch:
-                    loss = self.backward_pass(Xi, yi)
+                for X_batch, y_batch in batch:
+                    loss = self.backward_pass(X_batch, y_batch)
                     
                     loss_mean += loss
                     
@@ -164,6 +190,8 @@ class NeuralNetwork:
             
             if no_change_count > self.max_no_change_count:
                 if self.verbose:
-                    print(f'Early stopping at iteration {curr_iter + 1}')
+                    print(f'Early stopping at iteration: {curr_iter + 1}')
                     
                 break
+            
+__all__ = ['NeuralNetwork']

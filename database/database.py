@@ -1,5 +1,3 @@
-import pandas as pd
-
 from typing import Any, Callable, Union
 
 class Database:
@@ -442,10 +440,15 @@ class Database:
         ''' Save the data base to a csv file '''
         
         with open(path, 'w') as f:
-            if columns is not None:
+            if columns is None:
+                columns = []
+            else:
                 columns = columns if len(columns) > 0 else self.columns
-                
-                f.write(separator.join(columns) + '\n')
             
-            for row in self.values:
+            for row in [columns] + self.values:
+                if len(row) == 0:
+                    continue
+                    
                 f.write(separator.join([str(item) for item in row]) + '\n')
+
+__all__ = ['Database']

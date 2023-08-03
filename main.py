@@ -1,24 +1,17 @@
-from database import Database
+from database import Database, LabelEncoder, NormalScaler
 
-from neural_network import NeuralNetwork
-from preprocessing import OneHotEncoder, Standardizer
+from sklearn.preprocessing import Binarizer as SKBinarizer
 
-db = Database.read_csv('digits.csv', columns=None)
+db = Database(['age', 'salary', 'status', 'weight'], [
+    [0,1, 'single', 50],
+    [1,1, 'married', 60],
+    [2,2, 'single', 70],
+    [3,3, 'married', 80],
+    [4,4, 'single', 90],
+])
 
-y_encoder = OneHotEncoder()
+transformer = NormalScaler()
 
-db[-1] = y_encoder.fit_transform(db[-1])
+db[0, 1, 3] = transformer.fit_transform(db[0, 1, 3])
 
-X_standard_scaler = Standardizer()
-
-db[:64] = X_standard_scaler.fit_transform(db[:64])
-
-X = db[:64]
-y = db[64:]
-
-nn = NeuralNetwork(64, [32], 10, activation='tanh', output_activation='softmax', verbose=True)
-
-nn.train(X.values, y.values)
-
-for i in range(len(y.values)):
-    print(y_encoder.inverse_transform(nn.predict(X.values[i])))
+print(db)

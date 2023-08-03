@@ -178,3 +178,5 @@ class Matrix:
                 matrix.data[j][i] = self.data[i][j]
                 
         return matrix
+    
+__all__ = ['Matrix']

@@ -1,16 +1,7 @@
 from typing import Callable
-from math import exp as math_exp
+from math import exp, inf
 
-from matrix import Matrix
-
-def exp(x: float) -> float:
-    ''' Exponential function '''
-    
-    try:
-        return math_exp(x)
-    except OverflowError:
-        # TODO: Handle overflow
-        return 1e-10
+from neural_network.matrix import Matrix
 
 def identity(matrix: Matrix) -> Matrix:
     ''' Identity activation function '''
@@ -20,12 +11,30 @@ def identity(matrix: Matrix) -> Matrix:
 def sigmoid(matrix: Matrix) -> Matrix:
     ''' Sigmoid activation function '''
     
-    return matrix.map(lambda x: 1 / (1 + exp(-x)))
+    def sigmoid_(x: float) -> float:
+        ''' Sigmoid function with overflow protection '''
+        
+        try:
+            return 1 / (1 + exp(-x))
+        
+        except OverflowError:
+            return 0
+    
+    return matrix.map(sigmoid_)
 
 def tanh(matrix: Matrix) -> Matrix:
     ''' Tanh activation function '''
     
-    return matrix.map(lambda x: (exp(x) - exp(-x)) / (exp(x) + exp(-x)))
+    def tanh_(x: float) -> float:
+        ''' Tanh function with overflow protection '''
+        
+        try:
+            return (exp(x) - exp(-x)) / (exp(x) + exp(-x))
+        
+        except OverflowError:
+            return 1 if x > 0 else -1
+    
+    return matrix.map(tanh_)
 
 def relu(matrix: Matrix) -> Matrix:
     ''' ReLU activation function '''
@@ -35,12 +44,26 @@ def relu(matrix: Matrix) -> Matrix:
 def softmax(matrix: Matrix) -> Matrix:
     ''' Softmax activation function '''
     
-    exp_sum = matrix.map(lambda x: exp(x)).sum()    
+    def exp_sum_(m: Matrix) -> float:
+        ''' Exponential sum function with overflow protection '''
+        
+        try:
+            return m.map(lambda x: exp(x)).sum()
+        except OverflowError:
+            return inf
     
-    if exp_sum == 0:
-        exp_sum = 1
+    exp_sum = exp_sum_(matrix)
     
-    return matrix.map(lambda x: exp(x) / exp_sum)
+    def softmax_(x: float) -> float:
+        ''' Softmax function with overflow protection '''
+        
+        try:
+            return exp(x) / (exp_sum or 1)
+        
+        except OverflowError:
+            return int(exp_sum == inf)
+    
+    return matrix.map(softmax_)
 
 ACTIVATIONS: dict[str, Callable[[Matrix], Matrix]] = {
     'identity': identity,
@@ -82,3 +105,5 @@ DERIVATIVES: dict[str, Callable[[Matrix], Matrix]] = {
     'relu': relu_derivative,
     'softmax': softmax_derivative
 }
+
+__all__ = ['ACTIVATIONS', 'DERIVATIVES']
