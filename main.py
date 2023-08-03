@@ -13,7 +13,7 @@ encoder = OneHotEncoder()
 digits[:-1] = scaler.fit_transform(digits[:-1])
 digits[-1] = encoder.fit_transform(digits[-1])
 
-nn = NeuralNetwork([37, 37], verbose=True, activation='tanh', output_activation='softmax')
+nn = NeuralNetwork([60], verbose=True, activation='tanh', output_activation='softmax')
 
 X_train, X_test = digits[:64].split(0.8)
 y_train, y_test = digits[64:].split(0.8)
