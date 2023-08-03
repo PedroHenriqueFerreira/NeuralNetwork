@@ -195,10 +195,13 @@ class Database:
     ) -> None:
         ''' Set the given column with the given values '''
         
+        key = key if isinstance(key, list | tuple) else [key]
+        
+        if len(key) > 1 and isinstance(values, Database):
+            raise ValueError(f'Cannot set multiple columns with a data base')
+        
         indexes: list[int] = []
         columns: list[str] = []
-
-        key = key if isinstance(key, list | tuple) else [key]
 
         if isinstance(key, list | tuple):
             new_index = len(self.columns)
@@ -407,8 +410,31 @@ class Database:
         
         return std
     
+    def split(self, ratio: float = 0.8) -> tuple['Database', 'Database']:
+        ''' Split the data base into two data bases by the given ratio '''  
+        
+        if ratio <= 0 or ratio >= 1:
+            raise ValueError('Invalid ratio')
+        
+        columns = self.columns
+        values = [row[:] for row in self.values]
+        index = int(len(values) * ratio)
+        
+        return Database(columns[:], values[:index]), Database(columns[:], values[index:])
+    
     @staticmethod
-    def read_csv(path: str, separator: str = ',', columns: list[str] | None = []) -> 'Database':
+    def from_array(array: list[Any]) -> 'Database':
+        ''' Return a data base from an array '''
+        
+        return Database(values=[[item] for item in array])
+    
+    def to_array(self) -> list[Any]:
+        ''' Return an array from the data base '''
+        
+        return [item for row in self.values for item in row]
+    
+    @staticmethod
+    def from_csv(path: str, separator: str = ',', columns: list[str] | None = []) -> 'Database':
         ''' Read a csv file and return a data base instance '''
 
         values: list[list[Any]] = []
@@ -440,13 +466,11 @@ class Database:
         ''' Save the data base to a csv file '''
         
         with open(path, 'w') as f:
-            if columns is None:
-                columns = []
-            else:
+            if columns is not None:
                 columns = columns if len(columns) > 0 else self.columns
             
             for row in [columns] + self.values:
-                if len(row) == 0:
+                if row is None:
                     continue
                     
                 f.write(separator.join([str(item) for item in row]) + '\n')

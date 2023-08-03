@@ -1,17 +1,28 @@
-from database import Database, LabelEncoder, NormalScaler
+from database import Database
 
-from sklearn.preprocessing import Binarizer as SKBinarizer
+from database.scalers import StandardScaler
+from database.encoders import OneHotEncoder
 
-db = Database(['age', 'salary', 'status', 'weight'], [
-    [0,1, 'single', 50],
-    [1,1, 'married', 60],
-    [2,2, 'single', 70],
-    [3,3, 'married', 80],
-    [4,4, 'single', 90],
-])
+from neural_network import NeuralNetwork
 
-transformer = NormalScaler()
+digits = Database.from_csv('digits.csv', columns=None)
 
-db[0, 1, 3] = transformer.fit_transform(db[0, 1, 3])
+scaler = StandardScaler()
+encoder = OneHotEncoder()
 
-print(db)
+digits[:-1] = scaler.fit_transform(digits[:-1])
+digits[-1] = encoder.fit_transform(digits[-1])
+
+nn = NeuralNetwork([37, 37], verbose=True, activation='tanh', output_activation='softmax')
+
+X_train, X_test = digits[:64].split(0.8)
+y_train, y_test = digits[64:].split(0.8)
+
+nn.fit(X_train.values, y_train.values)
+
+total = 0
+
+predict = nn.predict(X_test.values)
+accuracy = sum(predict[i] == y_test.values[i] for i in range(len(predict))) / len(predict)
+    
+print(f'Accuracy: {accuracy * 100}%')

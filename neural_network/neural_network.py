@@ -45,7 +45,7 @@ class NeuralNetwork:
 
         self.biases_update: list[Matrix] = []
         self.weights_update: list[Matrix] = []
-    
+                
     def initialize(self, input_nodes: int, output_nodes: int) -> None:
         ''' Initialize the weights and biases of the neural network '''
         
@@ -69,24 +69,34 @@ class NeuralNetwork:
         self.biases_update.extend([matrix.zeros() for matrix in self.biases])
         self.weights_update.extend([matrix.zeros() for matrix in self.weights])
     
-    def predict(self, X: list[float]) -> list[float]:
+    def predict(self, X: list[list[float]]) -> list[list[float]]:
         ''' Predict the output of the neural network '''
         
         if len(self.weights) == 0:
             raise ValueError('The neural network must be fitted before predicting')
         
-        if len(X) != self.input_nodes: 
-            raise ValueError(f'Expected {self.input_nodes} inputs, got {len(X)}')
+        outputs: list[list[float]] = []
         
-        output = Matrix.from_array(X)
-        
-        for bias, weight in zip(self.biases, self.weights):
-            if bias == self.biases[-1]:
-                output = self.output_activation(weight @ output + bias)
-            else:
-                output = self.activation(weight @ output + bias)
+        for Xi in X:
+            if len(Xi) != self.input_nodes: 
+                raise ValueError(f'Expected {self.input_nodes} inputs, got {len(Xi)}')
+            
+            output = Matrix.from_array(Xi)
+            
+            for bias, weight in zip(self.biases, self.weights):
+                if bias == self.biases[-1]:
+                    output = self.output_activation(weight @ output + bias)
+                else:
+                    output = self.activation(weight @ output + bias)
+            
+            if self.output_activation == ACTIVATIONS['sigmoid']:
+                output = output.map(lambda x: round(x))
+            elif self.output_activation == ACTIVATIONS['softmax']:
+                output = output.map(lambda x: 1 if x == output.max() else 0)
+               
+            outputs.append(output.to_array())  
     
-        return output.to_array()
+        return outputs
     
     def forward_pass(self, X: list[float]) -> list[Matrix]:
         ''' Forward through the neural network and return the layers activations'''
@@ -133,7 +143,7 @@ class NeuralNetwork:
         for i in range(len(layers) - 1, -1, -1):
             if i == len(layers) - 1:
                 derivative = self.output_derivative(layers[i])
-                delta = (expected - layers[i]) # * derivative
+                delta = (expected - layers[i]) * derivative
             else:
                 derivative = self.derivative(layers[i])
                 delta = (self.weights[i + 1].T @ delta) * derivative
@@ -188,9 +198,9 @@ class NeuralNetwork:
             if loss_mean < best_loss:
                 best_loss = loss_mean
             
-            if no_change_count > self.max_no_change_count:
+            if no_change_count >= self.max_no_change_count:
                 if self.verbose:
-                    print(f'Early stopping at iteration: {curr_iter + 1}')
+                    print(f'No change in loss for {self.max_no_change_count} iterations, stopping')
                     
                 break
             

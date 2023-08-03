@@ -3,6 +3,8 @@ from typing import Any
 from database.database import Database
 
 class LabelEncoder:
+    ''' Label encode the data '''
+    
     def __init__(self):
         self.categories: list[list[Any]] = []
         
@@ -55,6 +57,8 @@ class LabelEncoder:
         return self.transform(database)
     
 class OneHotEncoder:
+    ''' One-hot encode the data '''
+    
     def __init__(self):
         self.columns: list[str] = []
         self.categories: list[list[Any]] = []
@@ -80,10 +84,7 @@ class OneHotEncoder:
         
         columns: list[str] = []
         
-        for column, category in zip(self.columns, self.categories):
-            if column not in database.columns:
-                raise ValueError('Invalid database')
-        
+        for column, category in zip(database.columns, self.categories):
             columns.extend([f'{column}_{value}' for value in category])
         
         values: list[list[Any]] = []
@@ -102,11 +103,23 @@ class OneHotEncoder:
         if len(self.categories) == 0:
             raise ValueError('Encoder must be fitted before transforming data')
         
-        if len(self.categories) != len(database.columns):
+        if sum(len(category) for category in self.categories) != len(database.columns):
             raise ValueError('Invalid database')
         
-        return Database()
-        # return Database([self.column], [[self.classes[row.index(1)]] for row in database.values])
+        columns = self.columns[:]
+        values: list[list[Any]] = []
+        
+        for row in database.values:
+            values.append([])
+            
+            index = 0
+            
+            for category in self.categories:
+                values[-1].append(category[row[index : index + len(category)].index(1)])
+                
+                index += len(category)
+        
+        return Database(columns, values)
     
     def fit_transform(self, database: Database) -> Database:
         ''' Fit and transform the data using the encoder '''

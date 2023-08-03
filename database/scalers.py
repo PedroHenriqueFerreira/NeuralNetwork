@@ -2,32 +2,6 @@ from typing import Any
 
 from database.database import Database
 
-class BinaryScaler:
-    ''' Binarize the data using a threshold '''
-
-    def __init__(self, threshold: float = 0.5):
-        self.threshold = threshold
-
-    def fit(self, database: Database) -> None:
-        ''' Fit the binarizer to the data '''
-        
-        if database.map(lambda x: not isinstance(x, int | float)).sum() > 0:
-            raise ValueError('Invalid database')
-        
-        if database.map(lambda x: x < 0 or x > 1).sum() > 0:
-            raise ValueError('Invalid database')
-
-    def transform(self, database: Database) -> Database:
-        ''' Transform the data using the binarizer '''
-        
-        return database.map(lambda x: int(x > self.threshold))
-    
-    def fit_transform(self, database: Database) -> Database:
-        ''' Fit and transform the data using the binarizer '''
-        
-        self.fit(database)
-        return self.transform(database)
-
 class NormalScaler:
     ''' Normalize the data using the L2 norm '''
     
@@ -43,7 +17,7 @@ class NormalScaler:
         self.norms.clear()
         
         for row in database.values:
-            norm = sum([item ** 2 for item in row]) ** 0.5
+            norm = sum(item ** 2 for item in row) ** 0.5
             
             self.norms.append(norm or 1)
 
@@ -147,4 +121,4 @@ class StandardScaler:
         self.fit(database)
         return self.transform(database)
     
-__all__ = ['BinaryScaler', 'NormalScaler', 'StandardScaler']
+__all__ = ['NormalScaler', 'StandardScaler']

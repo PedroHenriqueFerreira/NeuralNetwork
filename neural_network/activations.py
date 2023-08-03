@@ -1,5 +1,5 @@
 from typing import Callable
-from math import exp, inf
+from math import exp, inf, isnan
 
 from neural_network.matrix import Matrix
 
@@ -61,7 +61,7 @@ def softmax(matrix: Matrix) -> Matrix:
             return exp(x) / (exp_sum or 1)
         
         except OverflowError:
-            return int(exp_sum == inf)
+            return 1 if exp_sum == inf else inf
     
     return matrix.map(softmax_)
 

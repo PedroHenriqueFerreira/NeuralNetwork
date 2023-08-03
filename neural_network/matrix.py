@@ -50,6 +50,11 @@ class Matrix:
         
         return self.sum() / (self.rows * self.cols)
     
+    def max(self) -> float:
+        ''' Return the maximum value in the matrix '''
+        
+        return max(self.to_array())
+    
     def map(self, func: Callable[[float], float]) -> 'Matrix':
         ''' Apply a function to each element of the matrix '''
 
