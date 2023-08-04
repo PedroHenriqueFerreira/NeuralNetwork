@@ -9,8 +9,8 @@ class NeuralNetwork:
     def __init__(
         self,  
         hidden_nodes: list[int],
-        activation: Literal['identity', 'sigmoid', 'tanh', 'relu'] = 'sigmoid',
-        output_activation: Literal['identity', 'sigmoid', 'softmax'] = 'sigmoid',
+        activation: Literal['identity', 'sigmoid', 'tanh', 'relu'] = 'tanh',
+        output_activation: Literal['identity', 'sigmoid', 'softmax'] = 'softmax',
         learning_rate: float = 0.1,
         momentum: float = 0.9,
         batch_size: int = 200, 
@@ -132,7 +132,6 @@ class NeuralNetwork:
         if len(y) != self.output_nodes: 
             raise ValueError(f'Expected {self.output_nodes} outputs, got {len(y)}')
         
-        
         layers = self.forward_pass(X)
         
         inputs = Matrix.from_array(X)
@@ -155,11 +154,11 @@ class NeuralNetwork:
             else:
                 weight_update = delta @ layers[i - 1].T
             
-            self.biases_update[i] = self.momentum * self.biases_update[i] + self.learning_rate * bias_update
-            self.weights_update[i] = self.momentum * self.weights_update[i] + self.learning_rate * weight_update
+            self.biases_update[i] = self.momentum * self.biases_update[i] + (1 - self.momentum) * bias_update
+            self.weights_update[i] = self.momentum * self.weights_update[i] + (1 - self.momentum) * weight_update
     
-            self.biases[i] += self.biases_update[i]
-            self.weights[i] += self.weights_update[i]
+            self.biases[i] += self.learning_rate * self.biases_update[i]
+            self.weights[i] += self.learning_rate * self.weights_update[i]
 
         return loss
 
