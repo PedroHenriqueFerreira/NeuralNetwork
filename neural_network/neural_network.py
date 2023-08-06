@@ -4,10 +4,9 @@ from typing import Literal
 
 from .matrix import *
 
-from .activations import *
-from .derivatives import *
-
 from .optimizers import *
+from .activations import *
+from .loss import *
 
 class NeuralNetwork:
     ''' Neural Network class '''
@@ -15,20 +14,22 @@ class NeuralNetwork:
     def __init__(
         self,  
         hidden_nodes: list[int] = [100],
-        activation: Literal['identity', 'sigmoid', 'tanh', 'relu'] = 'tanh',
+        activation: Literal['identity', 'sigmoid', 'tanh', 'relu'] = 'relu',
         output_activation: Literal['identity', 'sigmoid', 'softmax'] = 'softmax',
         optimizer: Literal['sgd', 'adam'] = 'adam',
+        loss: Literal['mse', 'log'] = 'log',
         batch_size: int = 200, 
         max_iter: int = 200,
         max_no_change_count: int = 10,
         tol: float = 1e-4,
         verbose: bool = False,
+        
         # Optimizer parameters
-        learning_rate: float = 0.001,
-        momentum: float = 0.9,
-        beta1: float = 0.9, 
-        beta2: float = 0.999, 
-        epsilon: float = 1e-8
+        learning_rate: float | None = None, # 0.1 for sgd, 0.001 for adam
+        momentum: float | None = None, # 0.9
+        beta1: float | None = None, # 0.9
+        beta2: float | None = None, # 0.999
+        epsilon: float | None = None # 1e-8
     ):
         
         ''' Create a neural network with the given number of input, hidden and output nodes '''
@@ -39,8 +40,6 @@ class NeuralNetwork:
         self.hidden_nodes = hidden_nodes
         
         self.batch_size = batch_size
-        self.learning_rate = learning_rate
-        self.momentum = momentum
         self.max_iter = max_iter
         self.max_no_change_count = max_no_change_count
         self.tol = tol
@@ -49,19 +48,20 @@ class NeuralNetwork:
         self.biases: list[Matrix] = []
         self.weights: list[Matrix] = []
         
-        self.activation = ACTIVATIONS[activation]
-        self.output_activation = ACTIVATIONS[output_activation]
+        self.activation = ACTIVATIONS[activation]()
+        self.output_activation = ACTIVATIONS[output_activation]()
         
-        self.derivative = DERIVATIVES[activation]
-        self.output_derivative = DERIVATIVES[output_activation]
+        self.optimizer_params = {
+            'learning_rate': learning_rate,
+            'momentum': momentum,
+            'beta1': beta1,
+            'beta2': beta2,
+            'epsilon': epsilon
+        }
         
-        self.optimizer: Optimizer
+        self.optimizer = OPTIMIZERS[optimizer](**self.optimizer_params)
         
-        match optimizer:
-            case 'sgd':
-                self.optimizer = SGDOptimizer(learning_rate, momentum)
-            case 'adam':
-                self.optimizer = AdamOptimizer(learning_rate, beta1, beta2, epsilon)
+        self.loss = LOSS[loss]()
                 
     def initialize(self, input_nodes: int, output_nodes: int) -> None:
         ''' Initialize the weights and biases of the neural network '''
@@ -98,12 +98,12 @@ class NeuralNetwork:
                 if bias == self.biases[-1]:
                     output = self.output_activation(weight @ output + bias)
                     
-                    if self.output_activation == ACTIVATIONS['sigmoid']:
-                        output = output.map(lambda x: round(x))
-                    elif self.output_activation == ACTIVATIONS['softmax']:
-                        max_value = output.max()
+                    match str(self.output_activation):
+                        case 'sigmoid':
+                            output = output.map(lambda x: round(x))
+                        case 'softmax':
+                            output = output.map(lambda x: 1 if x == output.max() else 0)
                         
-                        output = output.map(lambda x: 1 if x == max_value else 0)
                 else:
                     output = self.activation(weight @ output + bias)
                
@@ -150,18 +150,21 @@ class NeuralNetwork:
         inputs = Matrix.from_array(X)
         expected = Matrix.from_array(y)
         
-        loss = (0.5 * (expected - layers[-1]) ** 2).mean()
-        
         biases_grads: list[Matrix] = [bias.zeros() for bias in self.biases]
         weights_grads: list[Matrix] = [weight.zeros() for weight in self.weights]
         
+        loss = self.loss(expected, layers[-1])
+        
         for i in range(len(layers) - 1, -1, -1):
             if i == len(layers) - 1:
-                derivative = self.output_derivative(layers[i])
-                delta = (expected - layers[i]) * derivative
+                output_activation_derivative = self.output_activation.derivative(layers[i])
+                loss_derivative = self.loss.derivative(expected, layers[i])
+                
+                delta = loss_derivative * output_activation_derivative
             else:
-                derivative = self.derivative(layers[i])
-                delta = (self.weights[i + 1].T @ delta) * derivative
+                activation_derivative = self.activation.derivative(layers[i])
+                
+                delta = (self.weights[i + 1].T @ delta) * activation_derivative
             
             biases_grads[i] = delta
             
@@ -231,19 +234,12 @@ class NeuralNetwork:
         attributes = self.__dict__.copy()
         
         for key in attributes:
-            if key in ['biases', 'weights', 'biases_update', 'weights_update']:
+            if key in ['biases', 'weights']:
                 attributes[key] = [matrix.data for matrix in attributes[key]]
 
-            if key in ['activation', 'derivative', 'output_activation', 'output_derivative']:
-                attributes[key] = attributes[key].__name__
-
-            if key == 'optimizer':
-                match attributes[key].__class__.__name__:
-                    case 'SGDOptimizer':
-                        attributes[key] = 'sgd'
-                    case 'AdamOptimizer':
-                        attributes[key] = 'adam'
-        
+            if key in ['activation', 'output_activation', 'loss', 'optimizer']:
+                attributes[key] = str(attributes[key])
+                
         json.dump(attributes, open(path, 'w'))
             
     @staticmethod
@@ -253,33 +249,23 @@ class NeuralNetwork:
         attributes = json.load(open(path, 'r'))
         
         for key in attributes:
-            if key in ['activation', 'output_activation']:
-                attributes[key] = ACTIVATIONS[attributes[key]]
-          
-            if key in ['derivative', 'output_derivative']:
-                attributes[key] = DERIVATIVES[attributes[key]]
+            match key:
+                case 'biases' | 'weights':
+                    attributes[key] = [Matrix.load(data) for data in attributes[key]]
+                    
+                case 'activation' | 'output_activation':
+                    attributes[key] = ACTIVATIONS[attributes[key]]()
         
-            if key in ['biases', 'weights', 'biases_update', 'weights_update']:
-                attributes[key] = [Matrix.load(data) for data in attributes[key]]
+                case 'optimizer':
+                    attributes[key] = OPTIMIZERS[attributes[key]](**attributes['optimizer_params'])
+                    
+                case 'loss':
+                    attributes[key] = LOSS[attributes[key]]() 
                 
-            if key == 'optimizer':
-                match attributes[key]:
-                    case 'sgd':
-                        attributes[key] = SGDOptimizer(
-                            attributes['learning_rate'], 
-                            attributes['momentum']
-                        )
-                    case 'adam':
-                        attributes[key] = AdamOptimizer(
-                            attributes['learning_rate'], 
-                            attributes['beta1'], 
-                            attributes['beta2'], 
-                            attributes['epsilon']
-                        )
-        
         nn = NeuralNetwork()
         nn.__dict__.update(attributes)
         
         return nn
-        
+   
+     
 __all__ = ['NeuralNetwork']

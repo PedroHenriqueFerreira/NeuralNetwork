@@ -16,7 +16,7 @@ digits[-1] = encoder.fit_transform(digits[-1])
 scaler.to_json('digits/X_scaler.json')
 encoder.to_json('digits/y_encoder.json')
 
-nn = NeuralNetwork([60], optimizer='sgd', learning_rate=0.1, verbose=True)
+nn = NeuralNetwork([60], loss='mse', verbose=True)
 
 X_train = digits[:64]
 y_train = digits[64:]

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Type
 
 from .matrix import Matrix
 
@@ -6,20 +7,26 @@ class Optimizer(ABC):
     ''' Base class for all optimizers '''
     
     @abstractmethod
+    def __init__(self, **kwargs: float | None) -> None: ...
+    
+    @abstractmethod
     def update(
-        self, 
-        biases: list[Matrix], 
-        weights: list[Matrix], 
-        biases_grads: list[Matrix], 
+        self,
+        biases: list[Matrix],
+        weights: list[Matrix],
+        biases_grads: list[Matrix],
         weights_grads: list[Matrix]
     ) -> tuple[list[Matrix], list[Matrix]]: ...
+    
+    @abstractmethod
+    def __str__(self) -> str: ...
 
 class SGDOptimizer(Optimizer):
     ''' Stochastic Gradient Descent optimizer '''
     
-    def __init__(self, learning_rate: float = 0.01, momentum: float = 0.9):
-        self.learning_rate = learning_rate
-        self.momentum = momentum
+    def __init__(self, **kwargs):
+        self.learning_rate = kwargs.get('learning_rate') or 0.1
+        self.momentum = kwargs.get('momentum') or 0.9
         
         self.updates: list[Matrix] | None = None
         
@@ -38,28 +45,27 @@ class SGDOptimizer(Optimizer):
         params: list[Matrix] = biases + weights
             
         for i, grads in enumerate(biases_grads + weights_grads):
-            self.updates[i] = self.momentum * self.updates[i] + self.learning_rate * grads
+            self.updates[i] = self.momentum * self.updates[i] + (1 - self.momentum) * grads
             
-            params[i] += self.updates[i]
+            params[i] += self.learning_rate * self.updates[i]
         
         index = len(biases)
             
         return params[:index], params[index:]
     
+    def __str__(self) -> str:
+        ''' Return the name of the optimizer '''
+        
+        return 'sgd'
+    
 class AdamOptimizer(Optimizer):
     ''' Adaptive Moment Estimation optimizer '''
     
-    def __init__(
-        self, 
-        learning_rate: float = 0.001, 
-        beta1: float = 0.9, 
-        beta2: float = 0.999, 
-        epsilon: float = 1e-8
-    ):
-        self.learning_rate = learning_rate
-        self.beta1 = beta1
-        self.beta2 = beta2
-        self.epsilon = epsilon
+    def __init__(self, **kwargs):
+        self.learning_rate = kwargs.get('learning_rate') or 0.001
+        self.beta1 = kwargs.get('beta1') or 0.9
+        self.beta2 = kwargs.get('beta2') or 0.999
+        self.epsilon = kwargs.get('epsilon') or 1e-8
         
         self.ms: list[Matrix] | None = None
         self.vs: list[Matrix] | None = None
@@ -95,4 +101,14 @@ class AdamOptimizer(Optimizer):
         
         return params[:index], params[index:]
 
-__all__ = ['Optimizer', 'SGDOptimizer', 'AdamOptimizer']
+    def __str__(self) -> str:
+        ''' Return the name of the optimizer '''
+        
+        return 'adam'
+
+OPTIMIZERS: dict[str, Type[Optimizer]] = {
+    'sgd': SGDOptimizer,
+    'adam': AdamOptimizer
+}
+
+__all__ = ['OPTIMIZERS']

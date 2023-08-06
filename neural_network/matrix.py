@@ -39,10 +39,18 @@ class Matrix:
         
         return sum
     
+    def count(self) -> int:
+        ''' Return the number of elements in the matrix '''
+        
+        return self.rows * self.cols
+    
     def mean(self) -> float:
         ''' Return the mean of all elements in the matrix '''
         
-        return self.sum() / (self.rows * self.cols)
+        if self.count() == 0:
+            return 0.0
+        
+        return self.sum() / self.count()
     
     def max(self) -> float:
         ''' Return the maximum value in the matrix '''
@@ -97,6 +105,17 @@ class Matrix:
             for j in range(matrix.cols):
                 matrix.data[i][j] = self.data[i][j] - other.data[i][j]
     
+        return matrix
+   
+    def __rsub__(self, value: float) -> 'Matrix':
+        ''' Scalar subtraction '''
+        
+        matrix = Matrix(self.rows, self.cols)
+        
+        for i in range(matrix.rows):
+            for j in range(matrix.cols):
+                matrix.data[i][j] = value - self.data[i][j]
+                
         return matrix
    
     def __mul__(self, other: 'Matrix') -> 'Matrix':
