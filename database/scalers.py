@@ -1,8 +1,42 @@
+import json
+
 from typing import Any
+from abc import ABC, abstractmethod
 
 from database.database import Database
 
-class NormalScaler:
+class Scaler(ABC):
+    ''' Abstract scaler class '''
+    
+    @abstractmethod
+    def fit(self, database: Database) -> None: ...
+    
+    @abstractmethod
+    def transform(self, database: Database) -> Database: ...
+    
+    @abstractmethod
+    def inverse_transform(self, database: Database) -> Database: ...
+    
+    def fit_transform(self, database: Database) -> Database: 
+        ''' Fit the scaler to the data and transform the data using the scaler '''
+        
+        self.fit(database)
+    
+        return self.transform(database)
+    
+    def to_json(self, path: str) -> None:
+        ''' Save the encoder to a JSON file '''
+        
+        attributes = self.__dict__
+        
+        with open(path, 'w') as file:
+            json.dump(attributes, file)
+        
+    @staticmethod
+    @abstractmethod    
+    def from_json(path: str) -> 'Scaler': ...
+
+class NormalScaler(Scaler):
     ''' Normalize the data using the L2 norm '''
     
     def __init__(self):
@@ -55,13 +89,19 @@ class NormalScaler:
             
         return Database(columns, values)
     
-    def fit_transform(self, database: Database) -> Database:
-        ''' Fit and transform the data using the normalizer '''
+    @staticmethod
+    def from_json(path: str) -> 'NormalScaler':
+        ''' Load the encoder from a JSON file '''
         
-        self.fit(database)
-        return self.transform(database)
+        with open(path, 'r') as file:
+            attributes = json.loads(file.read())
+        
+        encoder = NormalScaler()
+        encoder.__dict__.update(attributes)
+        
+        return encoder
 
-class StandardScaler:
+class StandardScaler(Scaler):
     ''' Standardize the data using the mean and standard deviation '''
     
     def __init__(self):
@@ -115,10 +155,16 @@ class StandardScaler:
         
         return Database(columns, values)
     
-    def fit_transform(self, database: Database) -> Database:
-        ''' Fit and transform the data using the standardizer '''
+    @staticmethod
+    def from_json(path: str) -> 'StandardScaler':
+        ''' Load the encoder from a JSON file '''
         
-        self.fit(database)
-        return self.transform(database)
+        with open(path, 'r') as file:
+            attributes = json.loads(file.read())
+        
+        encoder = StandardScaler()
+        encoder.__dict__.update(attributes)
+        
+        return encoder
     
 __all__ = ['NormalScaler', 'StandardScaler']

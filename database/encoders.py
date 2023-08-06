@@ -1,8 +1,42 @@
+import json
+
 from typing import Any
+from abc import ABC, abstractmethod
 
-from database.database import Database
+from database.database import Database    
 
-class LabelEncoder:
+class Encoder(ABC):
+    ''' Abstract encoder class '''
+    
+    @abstractmethod
+    def fit(self, database: Database) -> None: ...
+    
+    @abstractmethod
+    def transform(self, database: Database) -> Database: ...
+    
+    @abstractmethod
+    def inverse_transform(self, database: Database) -> Database: ...
+    
+    def fit_transform(self, database: Database) -> Database: 
+        ''' Fit the encoder to the data and transform the data using the encoder '''
+        
+        self.fit(database)
+        
+        return self.transform(database)
+    
+    def to_json(self, path: str) -> None:
+        ''' Save the encoder to a JSON file '''
+        
+        attributes = self.__dict__
+        
+        with open(path, 'w') as file:
+            json.dump(attributes, file)
+            
+    @staticmethod
+    @abstractmethod
+    def from_json(path: str) -> 'Encoder': ...
+
+class LabelEncoder(Encoder):
     ''' Label encode the data '''
     
     def __init__(self):
@@ -50,13 +84,19 @@ class LabelEncoder:
     
         return Database(columns, values)
     
-    def fit_transform(self, database: Database) -> Database:
-        ''' Fit and transform the data using the encoder '''
+    @staticmethod
+    def from_json(path: str) -> 'LabelEncoder':
+        ''' Load the encoder from a JSON file '''
         
-        self.fit(database)
-        return self.transform(database)
+        with open(path, 'r') as file:
+            attributes = json.loads(file.read())
+        
+        encoder = LabelEncoder()
+        encoder.__dict__.update(attributes)
+        
+        return encoder
     
-class OneHotEncoder:
+class OneHotEncoder(Encoder):
     ''' One-hot encode the data '''
     
     def __init__(self):
@@ -121,10 +161,16 @@ class OneHotEncoder:
         
         return Database(columns, values)
     
-    def fit_transform(self, database: Database) -> Database:
-        ''' Fit and transform the data using the encoder '''
+    @staticmethod
+    def from_json(path: str) -> 'OneHotEncoder':
+        ''' Load the encoder from a JSON file '''
         
-        self.fit(database)
-        return self.transform(database)
+        with open(path, 'r') as file:
+            attributes = json.loads(file.read())
+        
+        encoder = OneHotEncoder()
+        encoder.__dict__.update(attributes)
+        
+        return encoder
     
 __all__ = ['LabelEncoder', 'OneHotEncoder']

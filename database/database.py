@@ -6,10 +6,13 @@ class Database:
     def __init__(self, columns: list[str] | None = None, values: list[list[Any]] | None = None):
         ''' Create a new data base instance with the given columns and values '''
         
+        if values is None:
+            values = []
+        
         if columns is None:
             columns = []
             
-            if values is not None and len(values) > 0: 
+            if len(values) > 0: 
                 columns.extend([str(i) for i in range(len(values[0]))])
             
         if values is None:
@@ -423,24 +426,13 @@ class Database:
         return Database(columns[:], values[:index]), Database(columns[:], values[index:])
     
     @staticmethod
-    def from_array(array: list[Any]) -> 'Database':
-        ''' Return a data base from an array '''
-        
-        return Database(values=[[item] for item in array])
-    
-    def to_array(self) -> list[Any]:
-        ''' Return an array from the data base '''
-        
-        return [item for row in self.values for item in row]
-    
-    @staticmethod
     def from_csv(path: str, separator: str = ',', columns: list[str] | None = []) -> 'Database':
         ''' Read a csv file and return a data base instance '''
 
         values: list[list[Any]] = []
         
-        with open(path, 'r') as f:
-            for line in f.readlines():
+        with open(path, 'r') as file:
+            for line in file.readlines():
                 items = line.strip().split(separator)
 
                 row: list[Any] = []                
@@ -465,7 +457,7 @@ class Database:
     def to_csv(self, path: str, separator: str = ',', columns: list[str] | None = []) -> None:
         ''' Save the data base to a csv file '''
         
-        with open(path, 'w') as f:
+        with open(path, 'w') as file:
             if columns is not None:
                 columns = columns if len(columns) > 0 else self.columns
             
@@ -473,6 +465,6 @@ class Database:
                 if row is None:
                     continue
                     
-                f.write(separator.join([str(item) for item in row]) + '\n')
+                file.write(separator.join([str(item) for item in row]) + '\n')
 
 __all__ = ['Database']

@@ -1,24 +1,36 @@
+import json
+
 from typing import Literal
 
 from .matrix import *
+
 from .activations import *
+from .derivatives import *
+
+from .optimizers import *
 
 class NeuralNetwork:
     ''' Neural Network class '''
     
     def __init__(
         self,  
-        hidden_nodes: list[int],
+        hidden_nodes: list[int] = [100],
         activation: Literal['identity', 'sigmoid', 'tanh', 'relu'] = 'tanh',
         output_activation: Literal['identity', 'sigmoid', 'softmax'] = 'softmax',
-        learning_rate: float = 0.1,
-        momentum: float = 0.9,
+        optimizer: Literal['sgd', 'adam'] = 'adam',
         batch_size: int = 200, 
         max_iter: int = 200,
         max_no_change_count: int = 10,
         tol: float = 1e-4,
-        verbose: bool = False
+        verbose: bool = False,
+        # Optimizer parameters
+        learning_rate: float = 0.001,
+        momentum: float = 0.9,
+        beta1: float = 0.9, 
+        beta2: float = 0.999, 
+        epsilon: float = 1e-8
     ):
+        
         ''' Create a neural network with the given number of input, hidden and output nodes '''
         
         self.input_nodes: int = 0
@@ -34,17 +46,22 @@ class NeuralNetwork:
         self.tol = tol
         self.verbose = verbose
         
+        self.biases: list[Matrix] = []
+        self.weights: list[Matrix] = []
+        
         self.activation = ACTIVATIONS[activation]
         self.output_activation = ACTIVATIONS[output_activation]
         
         self.derivative = DERIVATIVES[activation]
         self.output_derivative = DERIVATIVES[output_activation]
         
-        self.biases: list[Matrix] = []
-        self.weights: list[Matrix] = []
-
-        self.biases_update: list[Matrix] = []
-        self.weights_update: list[Matrix] = []
+        self.optimizer: Optimizer
+        
+        match optimizer:
+            case 'sgd':
+                self.optimizer = SGDOptimizer(learning_rate, momentum)
+            case 'adam':
+                self.optimizer = AdamOptimizer(learning_rate, beta1, beta2, epsilon)
                 
     def initialize(self, input_nodes: int, output_nodes: int) -> None:
         ''' Initialize the weights and biases of the neural network '''
@@ -60,14 +77,8 @@ class NeuralNetwork:
         for n_in, n_out in zip(nodes[:-1], nodes[1:]):
             bound = (1 / n_in) ** 0.5
             
-            self.biases.append(Matrix(n_out, 1).randomize(bound))
-            self.weights.append(Matrix(n_out, n_in).randomize(bound))
-        
-        self.biases_update.clear()
-        self.weights_update.clear()
-        
-        self.biases_update.extend([matrix.zeros() for matrix in self.biases])
-        self.weights_update.extend([matrix.zeros() for matrix in self.weights])
+            self.biases.append(Matrix(n_out, 1).randomize(-bound, bound))
+            self.weights.append(Matrix(n_out, n_in).randomize(-bound, bound))
     
     def predict(self, X: list[list[float]]) -> list[list[float]]:
         ''' Predict the output of the neural network '''
@@ -75,7 +86,7 @@ class NeuralNetwork:
         if len(self.weights) == 0:
             raise ValueError('The neural network must be fitted before predicting')
         
-        outputs: list[list[float]] = []
+        predictions: list[list[float]] = []
         
         for Xi in X:
             if len(Xi) != self.input_nodes: 
@@ -86,17 +97,19 @@ class NeuralNetwork:
             for bias, weight in zip(self.biases, self.weights):
                 if bias == self.biases[-1]:
                     output = self.output_activation(weight @ output + bias)
+                    
+                    if self.output_activation == ACTIVATIONS['sigmoid']:
+                        output = output.map(lambda x: round(x))
+                    elif self.output_activation == ACTIVATIONS['softmax']:
+                        max_value = output.max()
+                        
+                        output = output.map(lambda x: 1 if x == max_value else 0)
                 else:
                     output = self.activation(weight @ output + bias)
-            
-            if self.output_activation == ACTIVATIONS['sigmoid']:
-                output = output.map(lambda x: round(x))
-            elif self.output_activation == ACTIVATIONS['softmax']:
-                output = output.map(lambda x: 1 if x == output.max() else 0)
                
-            outputs.append(output.to_array())  
+            predictions.append(output.to_array())  
     
-        return outputs
+        return predictions
     
     def forward_pass(self, X: list[float]) -> list[Matrix]:
         ''' Forward through the neural network and return the layers activations'''
@@ -139,6 +152,9 @@ class NeuralNetwork:
         
         loss = (0.5 * (expected - layers[-1]) ** 2).mean()
         
+        biases_grads: list[Matrix] = [bias.zeros() for bias in self.biases]
+        weights_grads: list[Matrix] = [weight.zeros() for weight in self.weights]
+        
         for i in range(len(layers) - 1, -1, -1):
             if i == len(layers) - 1:
                 derivative = self.output_derivative(layers[i])
@@ -147,18 +163,14 @@ class NeuralNetwork:
                 derivative = self.derivative(layers[i])
                 delta = (self.weights[i + 1].T @ delta) * derivative
             
-            bias_update = delta
+            biases_grads[i] = delta
             
             if i == 0:
-                weight_update = delta @ inputs.T
-            else:
-                weight_update = delta @ layers[i - 1].T
-            
-            self.biases_update[i] = self.momentum * self.biases_update[i] + (1 - self.momentum) * bias_update
-            self.weights_update[i] = self.momentum * self.weights_update[i] + (1 - self.momentum) * weight_update
-    
-            self.biases[i] += self.learning_rate * self.biases_update[i]
-            self.weights[i] += self.learning_rate * self.weights_update[i]
+                weights_grads[i] = delta @ inputs.T
+            else: 
+                weights_grads[i] = delta @ layers[i - 1].T
+
+        self.biases, self.weights = self.optimizer.update(self.biases, self.weights, biases_grads, weights_grads)
 
         return loss
 
@@ -202,5 +214,72 @@ class NeuralNetwork:
                     print(f'No change in loss for {self.max_no_change_count} iterations, stopping')
                     
                 break
+    
+    def accuracy(self, X: list[list[float]], y: list[list[float]]) -> float:
+        ''' Return the accuracy of the neural network '''
+        
+        if len(X) == 0 or len(y) == 0 or len(X) != len(y): 
+            raise ValueError(f'Invalid data provided')
+        
+        predictions = self.predict(X)
+        
+        return sum(yi == y_pred for yi, y_pred in zip(y, predictions)) / len(y)
+    
+    def to_json(self, path: str) -> None:
+        ''' Save the neural network to a json file '''
+        
+        attributes = self.__dict__.copy()
+        
+        for key in attributes:
+            if key in ['biases', 'weights', 'biases_update', 'weights_update']:
+                attributes[key] = [matrix.data for matrix in attributes[key]]
+
+            if key in ['activation', 'derivative', 'output_activation', 'output_derivative']:
+                attributes[key] = attributes[key].__name__
+
+            if key == 'optimizer':
+                match attributes[key].__class__.__name__:
+                    case 'SGDOptimizer':
+                        attributes[key] = 'sgd'
+                    case 'AdamOptimizer':
+                        attributes[key] = 'adam'
+        
+        json.dump(attributes, open(path, 'w'))
             
+    @staticmethod
+    def from_json(path: str) -> 'NeuralNetwork':
+        ''' Load the neural network from a json file '''
+        
+        attributes = json.load(open(path, 'r'))
+        
+        for key in attributes:
+            if key in ['activation', 'output_activation']:
+                attributes[key] = ACTIVATIONS[attributes[key]]
+          
+            if key in ['derivative', 'output_derivative']:
+                attributes[key] = DERIVATIVES[attributes[key]]
+        
+            if key in ['biases', 'weights', 'biases_update', 'weights_update']:
+                attributes[key] = [Matrix.load(data) for data in attributes[key]]
+                
+            if key == 'optimizer':
+                match attributes[key]:
+                    case 'sgd':
+                        attributes[key] = SGDOptimizer(
+                            attributes['learning_rate'], 
+                            attributes['momentum']
+                        )
+                    case 'adam':
+                        attributes[key] = AdamOptimizer(
+                            attributes['learning_rate'], 
+                            attributes['beta1'], 
+                            attributes['beta2'], 
+                            attributes['epsilon']
+                        )
+        
+        nn = NeuralNetwork()
+        nn.__dict__.update(attributes)
+        
+        return nn
+        
 __all__ = ['NeuralNetwork']
