@@ -16,14 +16,12 @@ digits[-1] = encoder.fit_transform(digits[-1])
 scaler.to_json('digits/X_scaler.json')
 encoder.to_json('digits/y_encoder.json')
 
-nn = NeuralNetwork([37, 37], verbose=True)
+nn = NeuralNetwork([50, 50], verbose=True)
 
 X_train = digits[:64]
 y_train = digits[64:]
 
-nn.fit(X_train.values, y_train.values)
+nn.fit(X_train, y_train)
 
-print('Saving neural network...')
-    
 nn.to_json('digits/neural_network.json')
 

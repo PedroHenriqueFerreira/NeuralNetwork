@@ -1,7 +1,5 @@
 from typing import Any, Callable
 
-from neural_network.matrix import Matrix
-
 from tkinter import Canvas, Misc, Event
 
 class PaintCanvas(Canvas):
@@ -37,16 +35,6 @@ class PaintCanvas(Canvas):
         self.bind('<ButtonRelease-1>', self.clear)
         
         self.focus_set()
-    
-    def set_data(self, data: list[int]) -> None:
-        ''' Set the data '''
-        
-        for i in range(self.rows):
-            for j in range(self.cols):
-                self.data[i][j] = data[i * self.cols + j]
-        
-        
-        self.update()
     
     def create_pixels(self) -> list[list[int]]:
         ''' Create the pixels '''

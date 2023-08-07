@@ -10,6 +10,9 @@ class Optimizer(ABC):
     def __init__(self, **kwargs: float | None) -> None: ...
     
     @abstractmethod
+    def reset(self) -> None: ...
+    
+    @abstractmethod
     def update(
         self,
         biases: list[Matrix],
@@ -29,6 +32,11 @@ class SGDOptimizer(Optimizer):
         self.momentum = kwargs.get('momentum') or 0.9
         
         self.updates: list[Matrix] | None = None
+    
+    def reset(self):
+        ''' Reset the updates '''
+        
+        self.updates = None
         
     def update(
         self, 
@@ -69,7 +77,13 @@ class AdamOptimizer(Optimizer):
         
         self.ms: list[Matrix] | None = None
         self.vs: list[Matrix] | None = None
+    
+    def reset(self):
+        ''' Reset the ms and vs '''
         
+        self.ms = None
+        self.vs = None
+    
     def update(
         self, 
         biases: list[Matrix], 

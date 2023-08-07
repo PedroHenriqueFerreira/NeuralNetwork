@@ -8,17 +8,19 @@ from .optimizers import *
 from .activations import *
 from .loss import *
 
+from database import Database
+
 class NeuralNetwork:
     ''' Neural Network class '''
     
     def __init__(
-        self,  
+        self,
         hidden_nodes: list[int] = [100],
         activation: Literal['identity', 'sigmoid', 'tanh', 'relu'] = 'relu',
         output_activation: Literal['identity', 'sigmoid', 'softmax'] = 'softmax',
         optimizer: Literal['sgd', 'adam'] = 'adam',
         loss: Literal['mse', 'log'] = 'log',
-        batch_size: int = 200, 
+        batch_size: int = 200,
         max_iter: int = 200,
         max_no_change_count: int = 10,
         tol: float = 1e-4,
@@ -31,7 +33,6 @@ class NeuralNetwork:
         beta2: float | None = None, # 0.999
         epsilon: float | None = None # 1e-8
     ):
-        
         ''' Create a neural network with the given number of input, hidden and output nodes '''
         
         self.input_nodes: int = 0
@@ -79,8 +80,10 @@ class NeuralNetwork:
             
             self.biases.append(Matrix(n_out, 1).randomize(-bound, bound))
             self.weights.append(Matrix(n_out, n_in).randomize(-bound, bound))
+
+        self.optimizer.reset()
     
-    def predict(self, X: list[list[float]]) -> list[list[float]]:
+    def predict(self, X: Database) -> Database:
         ''' Predict the output of the neural network '''
         
         if len(self.weights) == 0:
@@ -88,7 +91,7 @@ class NeuralNetwork:
         
         predictions: list[list[float]] = []
         
-        for Xi in X:
+        for Xi in X.values:
             if len(Xi) != self.input_nodes: 
                 raise ValueError(f'Expected {self.input_nodes} inputs, got {len(Xi)}')
             
@@ -102,14 +105,14 @@ class NeuralNetwork:
                         case 'sigmoid':
                             output = output.map(lambda x: round(x))
                         case 'softmax':
-                            output = output.map(lambda x: 1 if x == output.max() else 0)
+                            output = output.map(lambda x: int(x == output.max()))
                         
                 else:
                     output = self.activation(weight @ output + bias)
                
             predictions.append(output.to_array())  
     
-        return predictions
+        return Database(values=predictions)
     
     def forward_pass(self, X: list[float]) -> list[Matrix]:
         ''' Forward through the neural network and return the layers activations'''
@@ -177,13 +180,13 @@ class NeuralNetwork:
 
         return loss
 
-    def fit(self, X: list[list[float]], y: list[list[float]]) -> None:
+    def fit(self, X: Database, y: Database) -> None:
         ''' Train the neural network '''
         
-        if len(X) == 0 or len(y) == 0 or len(X) != len(y): 
+        if len(X.values) != len(y.values): 
             raise ValueError(f'Invalid data provided')
         
-        self.initialize(len(X[0]), len(y[0]))
+        self.initialize(len(X.columns), len(y.columns))
         
         best_loss: float = float('inf')
         no_change_count: int = 0
@@ -191,18 +194,18 @@ class NeuralNetwork:
         for curr_iter in range(self.max_iter):
             loss_mean = 0.0
             
-            for i in range(0, len(X), self.batch_size):
-                batch = zip(X[i:i + self.batch_size], y[i:i + self.batch_size])
+            for i in range(0, len(X.values), self.batch_size):
+                batch = zip(X.values[i:i + self.batch_size], y.values[i:i + self.batch_size])
                 
                 for X_batch, y_batch in batch:
                     loss = self.backward_pass(X_batch, y_batch)
                     
                     loss_mean += loss
                     
-            loss_mean /= len(X)
+            loss_mean /= len(X.values)
             
             if self.verbose:
-                print(f'Iteration: {curr_iter + 1} | Loss: {loss_mean}')
+                print(f'Iteration: {curr_iter + 1}, loss: {loss_mean}')
             
             if loss_mean > best_loss - self.tol:
                 no_change_count += 1
@@ -218,15 +221,15 @@ class NeuralNetwork:
                     
                 break
     
-    def accuracy(self, X: list[list[float]], y: list[list[float]]) -> float:
+    def accuracy(self, X: Database, y: Database) -> float:
         ''' Return the accuracy of the neural network '''
         
-        if len(X) == 0 or len(y) == 0 or len(X) != len(y): 
+        if len(X.values) != len(y.values): 
             raise ValueError(f'Invalid data provided')
         
         predictions = self.predict(X)
         
-        return sum(yi == y_pred for yi, y_pred in zip(y, predictions)) / len(y)
+        return sum(y_true == y_pred for y_true, y_pred in zip(y.values, predictions.values)) / len(y.values)
     
     def to_json(self, path: str) -> None:
         ''' Save the neural network to a json file '''

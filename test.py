@@ -1,4 +1,5 @@
 from tkinter import Tk, Label
+from paint_canvas import PaintCanvas
 
 from neural_network import NeuralNetwork
 
@@ -7,7 +8,6 @@ from database import Database
 from database.scalers import StandardScaler
 from database.encoders import OneHotEncoder
 
-from paint_canvas import PaintCanvas
 
 scaler = StandardScaler.from_json('digits/X_scaler.json')
 encoder = OneHotEncoder.from_json('digits/y_encoder.json')
@@ -15,28 +15,28 @@ encoder = OneHotEncoder.from_json('digits/y_encoder.json')
 neural_network = NeuralNetwork.from_json('digits/neural_network.json')
 
 root = Tk()
-root.config(background='#fff')
-root.option_add('*background', '#fff')
+root.config(bg='white')
 
-label = Label(root, text='...', font=('Minecraft', 20))
+label = Label(root, text='...', font=('Minecraft', 20), bg='white')
 label.pack(padx=10, pady=10)
 
-def predict(data: list[int]) -> None:
+def on_update(data: list[int]) -> None:
     if all(pixel == 0 for pixel in data):
         label.config(text='...')
+        
         return
     
-    db = Database(values=[data])
+    db_data = Database(values=[data])
 
-    db = scaler.transform(db)
-    
-    predictions = neural_network.predict(db.values)
-    
-    output = encoder.inverse_transform(Database(values=predictions)).values[0][0]
+    scaled_data = scaler.transform(db_data)
+    predictions = neural_network.predict(scaled_data)
+    decoded_data = encoder.inverse_transform(predictions)
+
+    output = decoded_data.values[0][0]
     
     label.config(text=output)
 
-canvas = PaintCanvas(root, on_update=predict)
+canvas = PaintCanvas(root, on_update=on_update)
 canvas.pack()
 
 root.mainloop()
