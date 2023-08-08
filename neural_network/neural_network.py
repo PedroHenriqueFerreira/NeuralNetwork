@@ -1,6 +1,7 @@
-import json
-
 from typing import Literal
+
+import json
+from random import shuffle
 
 from .matrix import *
 
@@ -20,6 +21,7 @@ class NeuralNetwork:
         output_activation: Literal['identity', 'sigmoid', 'softmax'] = 'softmax',
         optimizer: Literal['sgd', 'adam'] = 'adam',
         loss: Literal['mse', 'log'] = 'log',
+        shuffle: bool = True,
         batch_size: int = 200,
         max_iter: int = 200,
         max_no_change_count: int = 10,
@@ -44,6 +46,8 @@ class NeuralNetwork:
         self.max_iter = max_iter
         self.max_no_change_count = max_no_change_count
         self.tol = tol
+        
+        self.shuffle = shuffle
         self.verbose = verbose
         
         self.biases: list[Matrix] = []
@@ -195,7 +199,10 @@ class NeuralNetwork:
             loss_mean = 0.0
             
             for i in range(0, len(X.values), self.batch_size):
-                batch = zip(X.values[i:i + self.batch_size], y.values[i:i + self.batch_size])
+                batch = list(zip(X.values[i:i + self.batch_size], y.values[i:i + self.batch_size]))
+                
+                if self.shuffle:
+                    shuffle(batch)
                 
                 for X_batch, y_batch in batch:
                     loss = self.backward_pass(X_batch, y_batch)

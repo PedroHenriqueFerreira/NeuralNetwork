@@ -8,7 +8,6 @@ from database import Database
 from database.scalers import StandardScaler
 from database.encoders import OneHotEncoder
 
-
 scaler = StandardScaler.from_json('digits/X_scaler.json')
 encoder = OneHotEncoder.from_json('digits/y_encoder.json')
 
