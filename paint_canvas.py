@@ -66,21 +66,16 @@ class PaintCanvas(Canvas):
         
         for i in range(self.rows):
             for j in range(self.cols):
-                if self.data[i][j] < 0 or self.data[i][j] > self.max_value:
+                if self.data[i][j] < 0 or self.data[i][j] > 255:
                     continue
                 
-                gray = int((self.data[i][j] / self.max_value) * 255)
-                
-                if gray < 0 or gray > 255:
-                    continue
-                
-                gray = 255 - gray
+                gray = 255 - self.data[i][j]
                 
                 color = '#' + f'{gray:02x}' * 3
                 
                 self.itemconfig(self.pixels[i][j], fill=color)        
     
-        self.on_update([item for row in self.data for item in row])
+        self.on_update([round(item / self.max_value) for row in self.data for item in row])
     
     def draw(self, event: 'Event[Canvas]') -> None:
         ''' Draw on the canvas '''
@@ -94,11 +89,21 @@ class PaintCanvas(Canvas):
         if x >= self.cols or y >= self.rows:
             return
     
-        if self.data[y][x] >= self.max_value:
-            return
-    
-        self.data[y][x] += 1
+        if self.data[y][x] < 255:
+            self.data[y][x] = 255
+
+        if x > 0 and self.data[y][x - 1] < 255:
+            self.data[y][x - 1] += 1
         
+        if x < self.cols - 1 and self.data[y][x + 1] < 255:
+            self.data[y][x + 1] += 1
+        
+        if y > 0 and self.data[y - 1][x] < 255:
+            self.data[y - 1][x] += 1
+                
+        if y < self.rows - 1 and self.data[y + 1][x] < 255:
+            self.data[y + 1][x] += 1
+                    
         self.update()
     
     def clear(self, event: 'Event[Canvas]') -> None:
